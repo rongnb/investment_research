@@ -1,0 +1,82 @@
+# 数据源配置文件
+# 数据源优先级配置和API密钥管理
+
+# 全局配置
+global:
+  # 是否启用数据质量检查
+  enable_quality_check: true
+  # 是否自动清洗数据
+  auto_clean: true
+  # 默认缓存目录
+  cache_dir: ./data/cache
+  # 缓存过期时间（小时）
+  cache_expire_hours: 24
+  # 默认重试次数
+  retry_times: 3
+  # 默认每分钟最大请求数
+  max_requests_per_minute: 60
+
+# Tushare 配置
+tushare:
+  # API Token
+  # 推荐从环境变量读取: export TUSHARE_TOKEN=your_token
+  # 留空则自动读取环境变量
+  token: ""
+  
+  # 可选覆盖全局设置
+  timeout: 30
+  retry_times: 3
+  max_requests_per_minute: 60  # Tushare免费版限制每分钟60次
+  
+  # 是否优先使用Tushare获取股票数据
+  priority_for_stocks: true
+
+# AKShare 配置
+akshare:
+  # AKShare不需要API Key
+  # 可选配置
+  timeout: 30
+  retry_times: 3
+  max_requests_per_minute: 120
+  
+  # 是否优先使用AKShare获取宏观数据
+  priority_for_macro: true
+
+# 数据源优先级
+# 当使用FallbackDataCollector时，按照此顺序尝试
+priority_order:
+  - tushare
+  - akshare
+  - mock
+
+# 支持的宏观指标列表
+available_macro_indicators:
+  - gdp                  # 国内生产总值
+  - gdp_yoy             # GDP同比增长率
+  - cpi                 # 居民消费价格指数
+  - cpi_yoy             # CPI同比
+  - ppi                 # 工业生产者出厂价格指数
+  - ppi_yoy             # PPI同比
+  - pmi                 # 采购经理指数 (制造业)
+  - manufacturing_pmi   # 制造业PMI
+  - non_manufacturing_pmi  # 非制造业PMI
+  - interest_rate       # 贷款市场报价利率 (LPR)
+  - rrr                 # 存款准备金率
+  - m2                  # 货币供应量M2
+  - m2_yoy              # M2同比
+  - social_financing    # 社会融资规模
+  - unemployment        # 失业率
+  - consumer_confidence # 消费者信心指数
+  - industrial_output   # 工业增加值
+  - fixed_asset_investment  # 固定资产投资
+  - retail_sales        # 社会消费品零售总额
+
+# 常用指数代码
+common_indices:
+  sh000001: 上证指数
+  sh000300: 沪深300
+  sz399001: 深证成指
+  sz399006: 创业板指
+  sh000016: 上证50
+  sz399905: 中证500
+  sh000688: 科创50

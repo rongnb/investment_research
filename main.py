@@ -21,6 +21,7 @@ from modules.macro.analyzer import MacroAnalyzer, EconomicCycle
 from modules.research.analyzer import ResearchAnalyzer
 from modules.estimation.estimator import ParameterEstimator
 from modules.decision.optimizer import PortfolioOptimizer, RiskTolerance
+from modules.macro_analysis import CrawlerManager, PolicyAnalyzer, SentimentAnalyzer
 
 def main():
     """Main entry point"""
@@ -83,6 +84,35 @@ def main():
                                choices=['assets', 'cycle', 'performance'],
                                help='可视化类型')
     
+    # 宏观分析子命令 - 爬虫管理
+    macro_analysis_parser = subparsers.add_parser('macro-analysis', 
+                                                help='宏观分析模块')
+    
+    ma_subparsers = macro_analysis_parser.add_subparsers(title='宏观分析子命令', 
+                                                       dest='ma_subcommand')
+    
+    # 爬虫管理
+    crawler_parser = ma_subparsers.add_parser('crawler', 
+                                             help='爬虫管理')
+    crawler_parser.add_argument('--task', type=str, 
+                               help='指定要运行的爬虫任务名称')
+    crawler_parser.add_argument('-v', '--verbose', 
+                               action='store_true', 
+                               help='显示详细输出')
+    
+    # 文本分析
+    analyze_parser = ma_subparsers.add_parser('analyze', 
+                                             help='文本分析')
+    analyze_parser.add_argument('--text', type=str, 
+                               help='要分析的文本内容')
+    analyze_parser.add_argument('-v', '--verbose', 
+                               action='store_true', 
+                               help='显示详细输出')
+    
+    # 状态检查
+    status_parser = ma_subparsers.add_parser('status', 
+                                            help='显示状态')
+    
     args = parser.parse_args()
     
     # 设置日志
@@ -105,6 +135,16 @@ def main():
         elif args.subcommand == 'visualize':
             # 可视化
             visualize_data(args)
+        elif args.subcommand == 'macro-analysis':
+            # 宏观分析模块
+            if args.ma_subcommand == 'crawler':
+                run_macro_crawler(args)
+            elif args.ma_subcommand == 'analyze':
+                run_macro_analysis(args)
+            elif args.ma_subcommand == 'status':
+                show_macro_status(args)
+            else:
+                macro_analysis_parser.print_help()
         else:
             # 没有指定子命令，显示帮助信息
             parser.print_help()
@@ -228,6 +268,81 @@ def estimate_parameter(args):
     logger.info(f"估计值: {result.estimate:.2f}")
     logger.info(f"置信区间: [{result.lower_bound:.2f}, {result.upper_bound:.2f}]")
     logger.info(f"R-squared: {result.r_squared:.3f}")
+
+def run_macro_crawler(args):
+    """运行宏观分析爬虫"""
+    logger = Logger.get_logger()
+    logger.info("启动宏观分析爬虫...")
+    
+    manager = CrawlerManager()
+    
+    if args.task:
+        logger.info(f"立即运行任务: {args.task}")
+        manager.run_immediate_crawl([args.task])
+    else:
+        logger.info("立即运行所有爬虫任务")
+        manager.run_immediate_crawl()
+    
+    logger.info("\n=== 运行结果 ===")
+    logger.info(manager.get_status_report())
+
+
+def run_macro_analysis(args):
+    """运行宏观分析"""
+    logger = Logger.get_logger()
+    logger.info("开始文本分析...")
+    
+    if args.text:
+        policy_analyzer = PolicyAnalyzer()
+        sentiment_analyzer = SentimentAnalyzer()
+        
+        policy_result = policy_analyzer.analyze("文本分析", args.text)
+        sentiment_result = sentiment_analyzer.analyze(args.text)
+        
+        logger.info("\n=== 政策分析结果 ===")
+        logger.info(f"标题: {policy_result.title}")
+        logger.info(f"政策类型: {policy_result.policy_type}")
+        logger.info(f"政策级别: {policy_result.policy_level}")
+        logger.info(f"紧急程度: {policy_result.urgency_level}/10")
+        logger.info(f"置信度: {policy_result.confidence:.1%}")
+        
+        logger.info("\n=== 关键要点 ===")
+        for point in policy_result.key_points:
+            logger.info(f"• {point.content} (重要性: {point.importance}/10)")
+        
+        logger.info("\n=== 受影响行业 ===")
+        for impact in policy_result.affected_sectors:
+            logger.info(f"• {impact.sector}: {impact.impact_score:.1f} 分 ({impact.duration})")
+        
+        logger.info("\n=== 情感分析结果 ===")
+        logger.info(f"总体情感: {sentiment_analyzer.sentiment_to_text(sentiment_result.overall)}")
+        logger.info(f"情感分数: {sentiment_result.overall_score:.2f}")
+        logger.info(f"市场情感: {sentiment_result.market_sentiment:.2f}")
+        logger.info(f"政策情感: {sentiment_result.policy_sentiment:.2f}")
+        logger.info(f"行业情感: {sentiment_result.sector_sentiment:.2f}")
+        logger.info(f"置信度: {sentiment_result.confidence:.1%}")
+        
+        if sentiment_result.positive_keywords:
+            logger.info("\n正向关键词:")
+            for kw in sentiment_result.positive_keywords:
+                logger.info(f"• {kw}")
+        
+        if sentiment_result.negative_keywords:
+            logger.info("\n负向关键词:")
+            for kw in sentiment_result.negative_keywords:
+                logger.info(f"• {kw}")
+    else:
+        logger.error("请提供要分析的文本内容")
+
+
+def show_macro_status(args):
+    """显示宏观分析系统状态"""
+    logger = Logger.get_logger()
+    logger.info("宏观分析系统状态:")
+    
+    manager = CrawlerManager()
+    logger.info(manager.get_status_report())
+
 
 def visualize_data(args):
     """可视化"""
