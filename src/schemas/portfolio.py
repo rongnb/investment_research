@@ -51,3 +51,18 @@ class PortfolioResponse(PortfolioBase):
     
     class Config:
         from_attributes = True
+
+
+class PortfolioSummary(BaseModel):
+    """投资组合汇总统计"""
+    portfolio_id: int
+    name: str
+    cash: float
+    holding_count: int
+    total_cost: float
+    total_market_value: float
+    total_gain_loss: float
+    total_gain_loss_percent: float
+    
+    class Config:
+        from_attributes = True

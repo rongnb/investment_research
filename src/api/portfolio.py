@@ -88,3 +88,94 @@ def delete_portfolio(portfolio_id: int, db: Session = Depends(get_db)):
     db.delete(portfolio)
     db.commit()
     return {"status": "ok", "message": "Portfolio deleted"}
+
+
+@router.get("/{portfolio_id}/summary")
+def get_portfolio_summary(portfolio_id: int, db: Session = Depends(get_db)):
+    """获取投资组合汇总统计（总成本、总市值、总收益等）"""
+    portfolio = db.query(Portfolio).filter(Portfolio.id == portfolio_id).first()
+    if not portfolio:
+        raise HTTPException(status_code=404, detail="Portfolio not found")
+    
+    holdings = portfolio.holdings
+    
+    total_cost = 0.0
+    total_market_value = 0.0
+    total_gain_loss = 0.0
+    
+    for holding in holdings:
+        tc = holding.total_cost
+        tm = holding.market_value if holding.market_value is not None else tc
+        gl = holding.gain_loss if holding.gain_loss is not None else 0.0
+        
+        total_cost += tc
+        total_market_value += tm
+        total_gain_loss += gl
+    
+    # 加上现金
+    total_market_value += portfolio.cash
+    total_cost += portfolio.cash
+    
+    total_gain_loss_percent = 0.0
+    if total_cost > 0:
+        total_gain_loss_percent = (total_gain_loss / total_cost) * 100
+    
+    return {
+        "portfolio_id": portfolio_id,
+        "name": portfolio.name,
+        "cash": portfolio.cash,
+        "holding_count": len(holdings),
+        "total_cost": round(total_cost, 2),
+        "total_market_value": round(total_market_value, 2),
+        "total_gain_loss": round(total_gain_loss, 2),
+        "total_gain_loss_percent": round(total_gain_loss_percent, 2)
+    }
+
+
+@router.post("/{portfolio_id}/update-prices")
+def update_all_holding_prices(portfolio_id: int, db: Session = Depends(get_db)):
+    """更新投资组合内所有持仓的当前价格（触发价格更新）"""
+    from src.services.data_fetcher import get_a_stock_daily, get_us_stock_daily
+    from datetime import datetime, timedelta
+    
+    portfolio = db.query(Portfolio).filter(Portfolio.id == portfolio_id).first()
+    if not portfolio:
+        raise HTTPException(status_code=404, detail="Portfolio not found")
+    
+    updated = 0
+    errors = []
+    
+    end_date = datetime.now().strftime("%Y-%m-%d")
+    start_date = (datetime.now() - timedelta(days=7)).strftime("%Y-%m-%d")
+    
+    for holding in portfolio.holdings:
+        try:
+            if holding.asset_type == "stock" and len(holding.symbol) == 6:
+                # A股
+                df = get_a_stock_daily(holding.symbol, 
+                                      start_date.replace("-", ""), 
+                                      end_date.replace("-", ""))
+                if not df.empty:
+                    latest_close = df.iloc[-1]["close"]
+                    holding.current_price = float(latest_close)
+                    updated += 1
+            elif holding.asset_type in ["stock", "etf"]:
+                # 美股
+                df = get_us_stock_daily(holding.symbol, start_date, end_date)
+                if not df.empty:
+                    latest_close = df.iloc[-1]["close"]
+                    holding.current_price = float(latest_close)
+                    updated += 1
+        except Exception as e:
+            errors.append({
+                "symbol": holding.symbol,
+                "error": str(e)
+            })
+    
+    db.commit()
+    
+    return {
+        "status": "ok",
+        "updated_count": updated,
+        "errors": errors
+    }
