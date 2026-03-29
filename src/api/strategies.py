@@ -9,7 +9,12 @@ import pandas as pd
 from src.db.base import get_db
 from src.models.strategy import InvestmentStrategy
 from src.schemas.strategy import StrategyCreate, StrategyResponse, StrategyUpdate
-from src.services.backtest import BuyAndHoldStrategy, BacktestResult
+from src.services.backtest import (
+    BuyAndHoldStrategy, 
+    DollarCostAveragingStrategy,
+    FixedWeightRebalancingStrategy,
+    BacktestResult
+)
 from src.services.data_fetcher import get_stock_data
 
 router = APIRouter()
@@ -109,7 +114,30 @@ def run_backtest(
             raise HTTPException(status_code=400, detail="获取数据失败或数据量不足")
         
         # 根据策略名称选择回测方法
-        if "买入持有" in strategy.name or "Buy and Hold" in strategy.name:
+        strategy_name_lower = strategy.name.lower()
+        if "买入持有" in strategy.name or "buy and hold" in strategy_name_lower:
+            strategy_obj = BuyAndHoldStrategy(symbol)
+            result = strategy_obj.run(df)
+        elif "定投" in strategy.name or "dollar-cost" in strategy_name_lower:
+            strategy_obj = DollarCostAveragingStrategy(monthly_investment=1000)
+            result = strategy_obj.run(df)
+        elif "股债平衡" in strategy.name or "fixed.*weight" in strategy_name_lower:
+            # 解析参数，默认50/50
+            params = {"stock_weight": 0.5, "bond_weight": 0.5, "rebalance_threshold": 0.05}
+            if strategy.parameters:
+                import json
+                try:
+                    params.update(json.loads(strategy.parameters))
+                except:
+                    pass
+            strategy_obj = FixedWeightRebalancingStrategy(
+                stock_weight=params.get("stock_weight", 0.5),
+                bond_weight=params.get("bond_weight", 0.5),
+                rebalance_threshold=params.get("rebalance_threshold", 0.05)
+            )
+            result = strategy_obj.run(df)  # 债券用模拟
+        elif "指数" in strategy.name:
+            # 指数投资本质就是买入持有
             strategy_obj = BuyAndHoldStrategy(symbol)
             result = strategy_obj.run(df)
         else:
