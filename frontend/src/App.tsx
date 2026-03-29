@@ -115,6 +115,16 @@ function App() {
   const [compareResult, setCompareResult] = useState<any>(null);
   const [compareLoading, setCompareLoading] = useState(false);
 
+  // 创建策略弹窗相关状态
+  const [showCreateStrategyModal, setShowCreateStrategyModal] = useState(false);
+  const [newStrategyName, setNewStrategyName] = useState('');
+  const [newStrategyDesc, setNewStrategyDesc] = useState('');
+  const [newStrategyCategory, setNewStrategyCategory] = useState('被动投资');
+  const [newStrategyParams, setNewStrategyParams] = useState('{}');
+
+  // 深色模式
+  const [darkMode, setDarkMode] = useState(false);
+
   // 加载投资组合列表
   const loadPortfolios = async () => {
     setLoading(true);
@@ -327,6 +337,12 @@ function App() {
           description: "基于移动平均线交叉的趋势跟踪策略。\n\n规则：\n- 短期均线(20日)上穿长期均线(60日) → 金叉买入\n- 短期均线下穿长期均线 → 死叉卖出\n- 只在多头趋势持仓，空仓时不参与下跌\n\n特点：\n- 趋势跟踪，顺势而为\n- 避免长期熊市亏损\n- 适合有一定波动的市场",
           category: "趋势跟踪",
           parameters: JSON.stringify({ short_window: 20, long_window: 60 })
+        },
+        {
+          name: "低波动策略",
+          description: "只在波动率较低的时候持仓，高波动时段回避。\n\n规则：\n- 计算近期滚动波动率\n- 波动率低于阈值时持仓\n- 波动率高于阈值时空仓\n\n特点：\n- 回避剧烈下跌风险\n- 在震荡市场表现较好\n- 减少交易次数，降低情绪影响",
+          category: "风险管理",
+          parameters: JSON.stringify({ volatility_window: 20, volatility_threshold: 0.02 })
         }
       ];
 
@@ -338,7 +354,7 @@ function App() {
         });
       }
 
-      alert('初始化完成，已添加9种经典策略');
+      alert('初始化完成，已添加10种经典策略');
       loadStrategies();
     } catch (err) {
       console.error('Failed to init strategies:', err);
@@ -543,6 +559,49 @@ function App() {
     setShowCompareModal(true);
   };
 
+  // 创建新策略
+  const createStrategy = async () => {
+    if (!newStrategyName) {
+      alert('请输入策略名称');
+      return;
+    }
+    try {
+      let params;
+      try {
+        params = JSON.parse(newStrategyParams);
+      } catch (e) {
+        alert('参数JSON格式错误');
+        return;
+      }
+
+      const res = await fetch(`${API_BASE}/strategies/`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: newStrategyName,
+          description: newStrategyDesc,
+          category: newStrategyCategory,
+          parameters: newStrategyParams
+        })
+      });
+      if (res.ok) {
+        alert('创建成功');
+        loadStrategies();
+        setShowCreateStrategyModal(false);
+        // 重置表单
+        setNewStrategyName('');
+        setNewStrategyDesc('');
+        setNewStrategyCategory('被动投资');
+        setNewStrategyParams('{}');
+      } else {
+        alert('创建失败');
+      }
+    } catch (err) {
+      console.error('Failed to create strategy:', err);
+      alert('创建失败');
+    }
+  };
+
   useEffect(() => {
     loadPortfolios();
     loadStrategies();
@@ -564,28 +623,39 @@ function App() {
       case '资产配置': return 'bg-yellow-100 text-yellow-800';
       case '行业轮动': return 'bg-orange-100 text-orange-800';
       case '趋势跟踪': return 'bg-red-100 text-red-800';
+      case '风险管理': return 'bg-cyan-100 text-cyan-800';
       default: return 'bg-gray-100 text-gray-800';
     }
   };
 
   return (
-    <div className="container mx-auto p-4">
+    <div className={`container mx-auto p-4 min-h-screen ${darkMode ? 'bg-gray-900 text-white' : 'bg-gray-50 text-gray-900'}`}>
       <header className="mb-6">
-        <h1 className="text-3xl font-bold text-gray-800">
-          📊 Invest Management
-        </h1>
-        <p className="text-gray-500 mt-1">投资策略研究与组合管理</p>
+        <div className="flex justify-between items-center">
+          <div>
+            <h1 className={`text-3xl font-bold ${darkMode ? 'text-white' : 'text-gray-800'}`}>
+              📊 Invest Management
+            </h1>
+            <p className={`mt-1 ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>投资策略研究与组合管理</p>
+          </div>
+          <button
+            className={`px-3 py-2 rounded border ${darkMode ? 'border-gray-600 hover:bg-gray-800' : 'border-gray-200 hover:bg-gray-100'}`}
+            onClick={() => setDarkMode(!darkMode)}
+          >
+            {darkMode ? '☀️ 浅色' : '🌙 深色'}
+          </button>
+        </div>
         
         {/* 标签页导航 */}
-        <div className="flex space-x-1 mt-4 border-b">
+        <div className={`flex space-x-1 mt-4 border-b ${darkMode ? 'border-gray-700' : 'border-gray-200'}`}>
           <button
-            className={`px-4 py-2 font-medium rounded-t-lg ${activeTab === 'portfolio' ? 'border-b-2 border-blue-500 text-blue-600' : 'text-gray-500 hover:text-gray-700'}`}
+            className={`px-4 py-2 font-medium rounded-t-lg ${activeTab === 'portfolio' ? `border-b-2 border-blue-500 ${darkMode ? 'text-blue-400' : 'text-blue-600'}` : `${darkMode ? 'text-gray-400 hover:text-gray-300' : 'text-gray-500 hover:text-gray-700'}`}`}
             onClick={() => setActiveTab('portfolio')}
           >
             📂 投资组合
           </button>
           <button
-            className={`px-4 py-2 font-medium rounded-t-lg ${activeTab === 'strategies' ? 'border-b-2 border-blue-500 text-blue-600' : 'text-gray-500 hover:text-gray-700'}`}
+            className={`px-4 py-2 font-medium rounded-t-lg ${activeTab === 'strategies' ? `border-b-2 border-blue-500 ${darkMode ? 'text-blue-400' : 'text-blue-600'}` : `${darkMode ? 'text-gray-400 hover:text-gray-300' : 'text-gray-500 hover:text-gray-700'}`}`}
             onClick={() => setActiveTab('strategies')}
           >
             📚 投资策略
@@ -855,8 +925,14 @@ function App() {
       {activeTab === 'strategies' && (
         <>
           <div className="mb-4 flex flex-wrap gap-2 justify-between items-center">
-            <p className="text-gray-600">系统内置经典投资策略，可用于学习研究和回测</p>
+            <p className={`${darkMode ? 'text-gray-300' : 'text-gray-600'}`}>系统内置经典投资策略，可用于学习研究和回测</p>
             <div className="space-x-2">
+              <button 
+                className="bg-green-500 text-white px-4 py-2 rounded hover:bg-green-600"
+                onClick={() => setShowCreateStrategyModal(true)}
+              >
+                + 创建策略
+              </button>
               <button 
                 className="bg-purple-500 text-white px-4 py-2 rounded hover:bg-purple-600"
                 onClick={openCompare}
@@ -1175,6 +1251,79 @@ function App() {
               )}
             </>
           )}
+          </div>
+        </div>
+      )}
+
+      {/* 创建策略弹窗 */}
+      {showCreateStrategyModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center">
+          <div className={`p-6 rounded-lg w-96 ${darkMode ? 'bg-gray-800' : 'bg-white'}`}>
+            <h3 className={`text-xl font-bold mb-4 ${darkMode ? 'text-white' : 'text-gray-900'}`}>
+              + 创建自定义策略
+            </h3>
+            <div className="space-y-3">
+              <div>
+                <label className={`block text-sm font-medium mb-1 ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>策略名称 *</label>
+                <input 
+                  type="text" 
+                  placeholder="我的策略"
+                  className="w-full border rounded px-3 py-2"
+                  value={newStrategyName}
+                  onChange={e => setNewStrategyName(e.target.value)}
+                />
+              </div>
+              <div>
+                <label className={`block text-sm font-medium mb-1 ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>分类</label>
+                <select 
+                  className="w-full border rounded px-3 py-2"
+                  value={newStrategyCategory}
+                  onChange={e => setNewStrategyCategory(e.target.value)}
+                >
+                  <option value="被动投资">被动投资</option>
+                  <option value="价值投资">价值投资</option>
+                  <option value="成长投资">成长投资</option>
+                  <option value="资产配置">资产配置</option>
+                  <option value="行业轮动">行业轮动</option>
+                  <option value="趋势跟踪">趋势跟踪</option>
+                  <option value="波动率">波动率</option>
+                </select>
+              </div>
+              <div>
+                <label className={`block text-sm font-medium mb-1 ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>策略描述</label>
+                <textarea 
+                  className="w-full border rounded px-3 py-2"
+                  rows={4}
+                  value={newStrategyDesc}
+                  onChange={e => setNewStrategyDesc(e.target.value)}
+                />
+              </div>
+              <div>
+                <label className={`block text-sm font-medium mb-1 ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>参数 (JSON)</label>
+                <textarea 
+                  className="w-full border rounded px-3 py-2 font-mono text-sm"
+                  rows={3}
+                  placeholder='{"param1": 10}'
+                  value={newStrategyParams}
+                  onChange={e => setNewStrategyParams(e.target.value)}
+                />
+                <p className="text-xs text-gray-500 mt-1">系统会根据策略名称自动匹配回测算法</p>
+              </div>
+            </div>
+            <div className="flex justify-end space-x-2 mt-6">
+              <button 
+                className={`px-4 py-2 border rounded ${darkMode ? 'border-gray-600 text-gray-300 hover:bg-gray-700' : 'border-gray-200 text-gray-600 hover:bg-gray-50'}`}
+                onClick={() => setShowCreateStrategyModal(false)}
+              >
+                取消
+              </button>
+              <button 
+                className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
+                onClick={createStrategy}
+              >
+                创建
+              </button>
+            </div>
           </div>
         </div>
       )}

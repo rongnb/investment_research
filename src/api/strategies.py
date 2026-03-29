@@ -155,6 +155,20 @@ def run_backtest(
             # 动量策略默认使用20/60均线
             strategy_obj = MovingAverageCrossoverStrategy(20, 60)
             result = strategy_obj.run(df)
+        elif "波动" in strategy.name or "volatility" in strategy_name_lower:
+            # 解析参数
+            params = {"volatility_window": 20, "volatility_threshold": 0.02}
+            if strategy.parameters:
+                import json
+                try:
+                    params.update(json.loads(strategy.parameters))
+                except:
+                    pass
+            strategy_obj = LowVolatilityStrategy(
+                volatility_window=params.get("volatility_window", 20),
+                volatility_threshold=params.get("volatility_threshold", 0.02)
+            )
+            result = strategy_obj.run(df)
         elif "指数" in strategy.name:
             # 指数投资本质就是买入持有
             strategy_obj = BuyAndHoldStrategy(symbol)
@@ -274,6 +288,19 @@ def compare_strategies(
                 strategy_obj = MovingAverageCrossoverStrategy(
                     short_window=params.get("short_window", 20),
                     long_window=params.get("long_window", 60)
+                )
+                result = strategy_obj.run(df)
+            elif "波动" in strategy.name or "volatility" in strategy_name_lower:
+                params = {"volatility_window": 20, "volatility_threshold": 0.02}
+                if strategy.parameters:
+                    import json
+                    try:
+                        params.update(json.loads(strategy.parameters))
+                    except:
+                        pass
+                strategy_obj = LowVolatilityStrategy(
+                    volatility_window=params.get("volatility_window", 20),
+                    volatility_threshold=params.get("volatility_threshold", 0.02)
                 )
                 result = strategy_obj.run(df)
             else:

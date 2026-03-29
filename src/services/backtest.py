@@ -310,3 +310,71 @@ class MovingAverageCrossoverStrategy:
         result.trades = trades
         
         return result
+
+
+class LowVolatilityStrategy:
+    """低波动策略
+    
+    选择/持有低波动资产，在下跌市场中表现更好
+    这里实现为：只在波动率低于阈值时持仓
+    """
+    def __init__(self, volatility_window: int = 20, volatility_threshold: float = 0.02):
+        self.volatility_window = volatility_window
+        self.volatility_threshold = volatility_threshold  # 日波动率阈值（2%）
+    
+    def run(self, prices: pd.DataFrame) -> BacktestResult:
+        """运行低波动策略回测"""
+        result = BacktestResult()
+        close = prices['close']
+        
+        # 计算滚动波动率
+        returns = close.pct_change()
+        rolling_vol = returns.rolling(self.volatility_window).std()
+        
+        # 信号：波动率低于阈值时持仓
+        signal = pd.Series(0, index=close.index)
+        signal[rolling_vol < self.volatility_threshold] = 1
+        signal[rolling_vol >= self.volatility_threshold] = 0
+        
+        # 计算策略收益
+        strategy_returns = returns * signal.shift(1)
+        strategy_returns = strategy_returns.dropna()
+        
+        # 累计收益
+        cumulative = (1 + strategy_returns).cumprod()
+        
+        # 计算指标
+        result.total_return = (cumulative.iloc[-1] - 1) * 100
+        
+        n_days = len(strategy_returns)
+        years = n_days / 252
+        if years > 0:
+            result.annual_return = ((1 + result.total_return / 100) ** (1 / years) - 1) * 100
+        else:
+            result.annual_return = result.total_return
+        
+        if strategy_returns.std() != 0:
+            volatility = strategy_returns.std() * np.sqrt(252)
+            result.sharpe_ratio = (strategy_returns.mean() * 252) / volatility
+        else:
+            result.sharpe_ratio = 0
+        
+        peak = cumulative.cummax()
+        drawdown = (cumulative - peak) / peak
+        result.max_drawdown = drawdown.min() * 100
+        
+        result.equity_curve = cumulative
+        
+        # 记录切换信号
+        trades = []
+        prev_signal = 1
+        for date, sig in signal.items():
+            if sig != prev_signal and not pd.isna(sig):
+                if sig == 1:
+                    trades.append({"date": str(date), "type": "enter_low_vol", "vol": float(rolling_vol.loc[date])})
+                else:
+                    trades.append({"date": str(date), "type": "exit_high_vol", "vol": float(rolling_vol.loc[date])})
+                prev_signal = sig
+        result.trades = trades
+        
+        return result
