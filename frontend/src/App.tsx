@@ -1,5 +1,27 @@
 import React, { useState, useEffect } from 'react';
+import { Line } from 'react-chartjs-2';
+import {
+  Chart as ChartJS,
+  CategoryScale,
+  LinearScale,
+  PointElement,
+  LineElement,
+  Title,
+  Tooltip,
+  Legend,
+} from 'chart.js';
 import './App.css';
+
+// 注册 Chart.js 组件
+ChartJS.register(
+  CategoryScale,
+  LinearScale,
+  PointElement,
+  LineElement,
+  Title,
+  Tooltip,
+  Legend
+);
 
 // 类型定义
 interface Holding {
@@ -74,6 +96,15 @@ function App() {
   const [newHoldingQuantity, setNewHoldingQuantity] = useState('');
   const [newHoldingCost, setNewHoldingCost] = useState('');
   const [newHoldingType, setNewHoldingType] = useState('stock');
+
+  // 回测相关状态
+  const [showBacktestModal, setShowBacktestModal] = useState(false);
+  const [selectedStrategy, setSelectedStrategy] = useState<Strategy | null>(null);
+  const [backtestSymbol, setBacktestSymbol] = useState('');
+  const [backtestStartDate, setBacktestStartDate] = useState('');
+  const [backtestEndDate, setBacktestEndDate] = useState('');
+  const [backtestResult, setBacktestResult] = useState<any>(null);
+  const [backtestLoading, setBacktestLoading] = useState(false);
 
   // 加载投资组合列表
   const loadPortfolios = async () => {
@@ -297,6 +328,98 @@ function App() {
     } catch (err) {
       console.error('Failed to init strategies:', err);
       alert('初始化失败');
+    }
+  };
+
+  // 打开回测弹窗
+  const openBacktest = (strategy: Strategy) => {
+    setSelectedStrategy(strategy);
+    setBacktestSymbol('');
+    // 默认最近5年
+    const end = new Date();
+    const start = new Date();
+    start.setFullYear(start.getFullYear() - 5);
+    setBacktestEndDate(end.toISOString().split('T')[0]);
+    setBacktestStartDate(start.toISOString().split('T')[0]);
+    setBacktestResult(null);
+    setShowBacktestModal(true);
+  };
+
+  // 运行回测
+  const runBacktest = async () => {
+    if (!selectedStrategy) return;
+    if (!backtestSymbol) {
+      alert('请输入股票代码');
+      return;
+    }
+
+    setBacktestLoading(true);
+    try {
+      let url = `${API_BASE}/strategies/${selectedStrategy.id}/run-backtest?symbol=${encodeURIComponent(backtestSymbol)}`;
+      if (backtestStartDate) url += `&start_date=${backtestStartDate}`;
+      if (backtestEndDate) url += `&end_date=${backtestEndDate}`;
+
+      const res = await fetch(url, { method: 'POST' });
+      if (!res.ok) {
+        const err = await res.json();
+        alert(`回测失败: ${err.detail || '未知错误'}`);
+        return;
+      }
+      const data = await res.json();
+      setBacktestResult(data);
+      // 刷新策略列表更新回测结果
+      loadStrategies();
+    } catch (err) {
+      console.error('Backtest failed:', err);
+      alert('回测请求失败，请检查后端是否启动');
+    } finally {
+      setBacktestLoading(false);
+    }
+  };
+
+  // 准备图表数据
+  const getChartData = () => {
+    if (!backtestResult || !backtestResult.equity_curve) return null;
+    const labels = backtestResult.equity_curve.map((p: any) => p.date);
+    const data = backtestResult.equity_curve.map((p: any) => p.value);
+
+    return {
+      labels,
+      datasets: [
+        {
+          label: '权益曲线 (初始值=1)',
+          data,
+          borderColor: 'rgb(59, 130, 246)',
+          backgroundColor: 'rgba(59, 130, 246, 0.1)',
+          fill: true,
+          tension: 0.1
+        }
+      ]
+    };
+  };
+
+  const chartOptions = {
+    responsive: true,
+    maintainAspectRatio: false,
+    plugins: {
+      legend: {
+        display: true,
+        position: 'top' as const
+      }
+    },
+    scales: {
+      y: {
+        beginAtZero: false,
+        title: {
+          display: true,
+          text: '累计净值'
+        }
+      },
+      x: {
+        ticks: {
+          maxTicksLimit: 10
+        }
+      }
     }
   };
 
@@ -672,6 +795,14 @@ function App() {
                     )}
                   </div>
                 )}
+                <div className="mt-4 pt-3 border-t text-right">
+                  <button 
+                    className="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600 text-sm"
+                    onClick={() => openBacktest(s)}
+                  >
+                    ▶️ 运行回测
+                  </button>
+                </div>
               </div>
             ))}
           </div>
@@ -683,6 +814,112 @@ function App() {
             </div>
           )}
         </>
+      )}
+
+      {/* 运行回测弹窗 */}
+      {showBacktestModal && selectedStrategy && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center overflow-y-auto">
+          <div className="bg-white p-6 rounded-lg w-full max-w-4xl max-h-[90vh] overflow-y-auto">
+            <h3 className="text-2xl font-bold mb-4">
+              ▶️ 运行回测 · {selectedStrategy.name}
+            </h3>
+            
+            {/* 输入参数 */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">股票代码 *</label>
+                <input 
+                  type="text" 
+                  placeholder="A股: 600000, 美股: AAPL"
+                  className="w-full border rounded px-3 py-2"
+                  value={backtestSymbol}
+                  onChange={e => setBacktestSymbol(e.target.value)}
+                />
+                <p className="text-xs text-gray-500 mt-1">纯数字识别为A股，字母识别为美股</p>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">开始日期</label>
+                <input 
+                  type="date" 
+                  className="w-full border rounded px-3 py-2"
+                  value={backtestStartDate}
+                  onChange={e => setBacktestStartDate(e.target.value)}
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">结束日期</label>
+                <input 
+                  type="date" 
+                  className="w-full border rounded px-3 py-2"
+                  value={backtestEndDate}
+                  onChange={e => setBacktestEndDate(e.target.value)}
+                />
+              </div>
+            </div>
+
+            <div className="mb-6">
+              <button 
+                className="bg-blue-500 text-white px-6 py-2 rounded hover:bg-blue-600 disabled:opacity-50"
+                onClick={runBacktest}
+                disabled={backtestLoading}
+              >
+                {backtestLoading ? '计算中...' : '开始回测'}
+              </button>
+              <button 
+                className="ml-2 px-4 py-2 border rounded text-gray-600 hover:bg-gray-50"
+                onClick={() => setShowBacktestModal(false)}
+              >
+                关闭
+              </button>
+            </div>
+
+            {/* 回测结果 */}
+            {backtestResult && (
+              <div>
+                {/* 关键指标 */}
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+                  <div className="bg-gray-50 p-3 rounded">
+                    <div className="text-sm text-gray-500">总收益</div>
+                    <div className={`text-xl font-semibold ${getColorClass(backtestResult.total_return)}`}>
+                      {backtestResult.total_return.toFixed(2)}%
+                    </div>
+                  </div>
+                  <div className="bg-gray-50 p-3 rounded">
+                    <div className="text-sm text-gray-500">年化收益</div>
+                    <div className={`text-xl font-semibold ${getColorClass(backtestResult.annual_return)}`}>
+                      {backtestResult.annual_return.toFixed(2)}%
+                    </div>
+                  </div>
+                  <div className="bg-gray-50 p-3 rounded">
+                    <div className="text-sm text-gray-500">夏普比率</div>
+                    <div className="text-xl font-semibold">
+                      {backtestResult.sharpe_ratio.toFixed(2)}
+                    </div>
+                  </div>
+                  <div className="bg-gray-50 p-3 rounded">
+                    <div className="text-sm text-gray-500">最大回撤</div>
+                    <div className={`text-xl font-semibold ${getColorClass(-backtestResult.max_drawdown)}`}>
+                      {backtestResult.max_drawdown.toFixed(2)}%
+                    </div>
+                  </div>
+                </div>
+
+                <div className="mb-2 text-sm text-gray-600">
+                  回测区间: {backtestResult.start_date} 至 {backtestResult.end_date} 
+                  · 交易日: {backtestResult.trading_days} 天
+                </div>
+
+                {/* 权益曲线图 */}
+                {backtestResult.equity_curve && backtestResult.equity_curve.length > 0 && (
+                  <div className="h-80 border rounded p-4 bg-white">
+                    <h4 className="text-lg font-semibold mb-3">权益曲线</h4>
+                    <Line data={getChartData()!} options={chartOptions} />
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        </div>
       )}
 
       {loading && <div>加载中...</div>}

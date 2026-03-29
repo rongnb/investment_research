@@ -74,3 +74,31 @@ def get_etf_history(symbol: str, start_date: str, end_date: str, market: str = "
         return get_a_stock_daily(symbol, start_date.replace("-", ""), end_date.replace("-", ""))
     else:
         return get_us_stock_daily(symbol, start_date, end_date)
+
+
+def get_stock_data(symbol: str, start_date: str = None, end_date: str = None) -> pd.DataFrame:
+    """自动判断市场获取股票数据
+    
+    Args:
+        symbol: 股票代码，纯数字为A股，否则为美股
+        start_date: YYYY-MM-DD，默认 10 年前
+        end_date: YYYY-MM-DD，默认今天
+    """
+    from datetime import datetime, timedelta
+    
+    # 设置默认时间范围：过去 10 年
+    if end_date is None:
+        end_date = datetime.now().strftime("%Y-%m-%d")
+    if start_date is None:
+        start_dt = datetime.now() - timedelta(days=365*10)
+        start_date = start_dt.strftime("%Y-%m-%d")
+    
+    # 判断是A股还是美股
+    if symbol.isdigit():
+        # A股需要格式为 YYYYMMDD
+        start_ymd = start_date.replace("-", "")
+        end_ymd = end_date.replace("-", "")
+        return get_a_stock_daily(symbol, start_ymd, end_ymd)
+    else:
+        # 美股
+        return get_us_stock_daily(symbol, start_date, end_date)
