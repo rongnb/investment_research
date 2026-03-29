@@ -1,0 +1,31 @@
+# 核心依赖
+fastapi>=0.104.0
+uvicorn>=0.24.0
+pydantic>=2.5.0
+python-multipart>=0.0.6
+
+# 数据分析
+pandas>=2.1.0
+numpy>=1.26.0
+matplotlib>=3.8.0
+scipy>=1.11.0
+
+# 数据获取
+yfinance>=0.2.31
+akshare>=1.12.0
+
+# 数据库
+sqlalchemy>=2.0.23
+alembic>=1.12.0
+
+# 工具
+python-dotenv>=1.0.0
+typer>=0.9.0
+rich>=13.7.0
+
+# 开发
+jupyter>=1.0.0
+pytest>=7.4.0
+pytest-cov>=4.1.0
+black>=23.10.0
+flake8>=6.1.0
