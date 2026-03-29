@@ -224,6 +224,12 @@ def run_backtest(
         strategy.annual_return = result.annual_return
         strategy.sharpe_ratio = result.sharpe_ratio
         strategy.max_drawdown = result.max_drawdown
+        if start_date:
+            from datetime import datetime
+            strategy.backtest_start_date = datetime.strptime(start_date, "%Y-%m-%d")
+        if end_date:
+            from datetime import datetime
+            strategy.backtest_end_date = datetime.strptime(end_date, "%Y-%m-%d")
         db.commit()
         
         # 准备权益曲线数据
@@ -242,8 +248,48 @@ def run_backtest(
                     "value": float(value)
                 })
         
+        # 自动保存回测结果到数据库
+        from src.models.strategy import BacktestResult
+        import json
+        
+        # 转换为JSON字符串保存
+        equity_curve_json = json.dumps(equity_data)
+        params_used_json = strategy.parameters if strategy.parameters else "{}"
+        
+        # 转换日期
+        saved_start_date = None
+        saved_end_date = None
+        if start_date:
+            from datetime import datetime
+            saved_start_date = datetime.strptime(start_date, "%Y-%m-%d")
+        if end_date:
+            from datetime import datetime
+            saved_end_date = datetime.strptime(end_date, "%Y-%m-%d")
+        if not start_date and len(df) > 0:
+            saved_start_date = df.index[0].to_pydatetime()
+        if not end_date and len(df) > 0:
+            saved_end_date = df.index[-1].to_pydatetime()
+        
+        # 创建保存记录
+        saved_result = BacktestResult(
+            strategy_id=strategy_id,
+            symbol=symbol,
+            start_date=saved_start_date,
+            end_date=saved_end_date,
+            parameters_used=params_used_json,
+            total_return=result.total_return,
+            annual_return=result.annual_return,
+            sharpe_ratio=result.sharpe_ratio,
+            max_drawdown=result.max_drawdown,
+            volatility=getattr(result, 'volatility', None),
+            equity_curve=equity_curve_json,
+        )
+        db.add(saved_result)
+        db.commit()
+        
         return {
             "status": "ok",
+            "saved_result_id": saved_result.id,
             "strategy_id": strategy_id,
             "symbol": symbol,
             "total_return": result.total_return,
@@ -411,3 +457,79 @@ def compare_strategies(
         
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"对比失败: {str(e)}")
+
+
+# ========== 回测结果保存 API ==========
+from src.models.strategy import BacktestResult
+from src.schemas.strategy import BacktestResultResponse, BacktestResultCreate
+
+
+@router.get("/backtest-results", response_model=List[BacktestResultResponse])
+def list_backtest_results(
+    strategy_id: int = None,
+    db: Session = Depends(get_db)
+):
+    """获取历史回测结果列表"""
+    query = db.query(BacktestResult).join(BacktestResult.strategy)
+    if strategy_id is not None:
+        query = query.filter(BacktestResult.strategy_id == strategy_id)
+    
+    results = query.order_by(BacktestResult.created_at.desc()).all()
+    
+    # 添加策略名称到返回结果
+    response_list = []
+    for result in results:
+        response = BacktestResultResponse.model_validate(result)
+        if result.strategy:
+            response.strategy_name = result.strategy.name
+        response_list.append(response)
+    
+    return response_list
+
+
+@router.get("/backtest-results/{result_id}", response_model=BacktestResultResponse)
+def get_backtest_result(result_id: int, db: Session = Depends(get_db)):
+    """获取单个回测结果详情"""
+    result = db.query(BacktestResult).filter(
+        BacktestResult.id == result_id
+    ).first()
+    if not result:
+        raise HTTPException(status_code=404, detail="Backtest result not found")
+    
+    response = BacktestResultResponse.model_validate(result)
+    if result.strategy:
+        response.strategy_name = result.strategy.name
+    
+    return response
+
+
+@router.post("/backtest-results", response_model=BacktestResultResponse)
+def create_backtest_result(
+    result_in: BacktestResultCreate,
+    db: Session = Depends(get_db)
+):
+    """保存回测结果"""
+    db_result = BacktestResult(**result_in.model_dump())
+    db.add(db_result)
+    db.commit()
+    db.refresh(db_result)
+    
+    response = BacktestResultResponse.model_validate(db_result)
+    if db_result.strategy:
+        response.strategy_name = db_result.strategy.name
+    
+    return response
+
+
+@router.delete("/backtest-results/{result_id}")
+def delete_backtest_result(result_id: int, db: Session = Depends(get_db)):
+    """删除回测结果"""
+    result = db.query(BacktestResult).filter(
+        BacktestResult.id == result_id
+    ).first()
+    if not result:
+        raise HTTPException(status_code=404, detail="Backtest result not found")
+    
+    db.delete(result)
+    db.commit()
+    return {"status": "ok", "message": "Backtest result deleted"}

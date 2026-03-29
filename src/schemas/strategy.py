@@ -2,7 +2,7 @@
 投资策略 Pydantic schemas
 """
 from datetime import datetime
-from typing import Optional
+from typing import Optional, List
 from pydantic import BaseModel
 
 
@@ -40,6 +40,34 @@ class StrategyResponse(StrategyBase):
     is_active: bool
     created_at: datetime
     updated_at: datetime
+    
+    class Config:
+        from_attributes = True
+
+
+class BacktestResultBase(BaseModel):
+    strategy_id: int
+    symbol: str
+    start_date: Optional[datetime] = None
+    end_date: Optional[datetime] = None
+    parameters_used: Optional[str] = None
+    total_return: Optional[float] = None
+    annual_return: Optional[float] = None
+    sharpe_ratio: Optional[float] = None
+    max_drawdown: Optional[float] = None
+    volatility: Optional[float] = None
+    equity_curve: Optional[str] = None
+    note: Optional[str] = None
+
+
+class BacktestResultCreate(BacktestResultBase):
+    pass
+
+
+class BacktestResultResponse(BacktestResultBase):
+    id: int
+    created_at: datetime
+    strategy_name: Optional[str] = None
     
     class Config:
         from_attributes = True

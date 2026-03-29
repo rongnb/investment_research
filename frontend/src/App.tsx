@@ -73,6 +73,20 @@ interface Strategy {
   is_active: boolean;
 }
 
+interface BacktestHistory {
+  id: number;
+  strategy_id: number;
+  strategy_name?: string;
+  symbol: string;
+  start_date: string | null;
+  end_date: string | null;
+  total_return: number | null;
+  annual_return: number | null;
+  sharpe_ratio: number | null;
+  max_drawdown: number | null;
+  created_at: string;
+}
+
 const API_BASE = 'http://localhost:8000/api';
 
 type Tab = 'portfolio' | 'strategies';
@@ -124,6 +138,11 @@ function App() {
 
   // 深色模式
   const [darkMode, setDarkMode] = useState(false);
+
+  // 历史回测结果弹窗
+  const [showHistoryModal, setShowHistoryModal] = useState(false);
+  const [backtestHistory, setBacktestHistory] = useState<BacktestHistory[]>([]);
+  const [historyLoading, setHistoryLoading] = useState(false);
 
   // 加载投资组合列表
   const loadPortfolios = async () => {
@@ -940,6 +959,25 @@ function App() {
             <p className={`${darkMode ? 'text-gray-300' : 'text-gray-600'}`}>系统内置经典投资策略，可用于学习研究和回测</p>
             <div className="space-x-2">
               <button 
+                className="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600"
+                onClick={async () => {
+                  setHistoryLoading(true);
+                  try {
+                    const res = await fetch(`${API_BASE}/strategies/backtest-results`);
+                    const data = await res.json();
+                    setBacktestHistory(data);
+                    setShowHistoryModal(true);
+                  } catch (err) {
+                    console.error('Failed to load history:', err);
+                    alert('加载失败，请检查后端是否启动');
+                  } finally {
+                    setHistoryLoading(false);
+                  }
+                }}
+              >
+                📜 历史回测
+              </button>
+              <button 
                 className="bg-green-500 text-white px-4 py-2 rounded hover:bg-green-600"
                 onClick={() => setShowCreateStrategyModal(true)}
               >
@@ -1336,6 +1374,174 @@ function App() {
                 创建
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {loading && <div>加载中...</div>}
+
+      {/* 创建策略弹窗 */}
+      {showCreateStrategyModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center">
+          <div className={`p-6 rounded-lg w-96 ${darkMode ? 'bg-gray-800' : 'bg-white'}`}>
+            <h3 className={`text-xl font-bold mb-4 ${darkMode ? 'text-white' : 'text-gray-900'}`}>
+              + 创建自定义策略
+            </h3>
+            <div className="space-y-3">
+              <div>
+                <label className={`block text-sm font-medium mb-1 ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>策略名称 *</label>
+                <input 
+                  type="text" 
+                  placeholder="我的策略"
+                  className="w-full border rounded px-3 py-2"
+                  value={newStrategyName}
+                  onChange={e => setNewStrategyName(e.target.value)}
+                />
+              </div>
+              <div>
+                <label className={`block text-sm font-medium mb-1 ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>分类</label>
+                <select 
+                  className="w-full border rounded px-3 py-2"
+                  value={newStrategyCategory}
+                  onChange={e => setNewStrategyCategory(e.target.value)}
+                >
+                  <option value="被动投资">被动投资</option>
+                  <option value="价值投资">价值投资</option>
+                  <option value="成长投资">成长投资</option>
+                  <option value="资产配置">资产配置</option>
+                  <option value="行业轮动">行业轮动</option>
+                  <option value="趋势跟踪">趋势跟踪</option>
+                  <option value="风险管理">风险管理</option>
+                </select>
+              </div>
+              <div>
+                <label className={`block text-sm font-medium mb-1 ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>策略描述</label>
+                <textarea 
+                  className="w-full border rounded px-3 py-2"
+                  rows={4}
+                  value={newStrategyDesc}
+                  onChange={e => setNewStrategyDesc(e.target.value)}
+                />
+              </div>
+              <div>
+                <label className={`block text-sm font-medium mb-1 ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>参数 (JSON)</label>
+                <textarea 
+                  className="w-full border rounded px-3 py-2 font-mono text-sm"
+                  rows={3}
+                  placeholder='{"param1": 10}'
+                  value={newStrategyParams}
+                  onChange={e => setNewStrategyParams(e.target.value)}
+                />
+                <p className="text-xs text-gray-500 mt-1">系统会根据策略名称自动匹配回测算法</p>
+              </div>
+            </div>
+            <div className="flex justify-end space-x-2 mt-6">
+              <button 
+                className={`px-4 py-2 border rounded ${darkMode ? 'border-gray-600 text-gray-300 hover:bg-gray-700' : 'border-gray-200 text-gray-600 hover:bg-gray-50'}`}
+                onClick={() => setShowCreateStrategyModal(false)}
+              >
+                取消
+              </button>
+              <button 
+                className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
+                onClick={createStrategy}
+              >
+                创建
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 历史回测结果弹窗 */}
+      {showHistoryModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className={`p-6 rounded-lg w-full max-w-4xl max-h-[80vh] overflow-y-auto ${darkMode ? 'bg-gray-800' : 'bg-white'}`}>
+            <div className="flex justify-between items-center mb-4">
+              <h3 className={`text-xl font-bold ${darkMode ? 'text-white' : ''}`}>📜 历史回测记录</h3>
+              <button 
+                className={`px-3 py-1 rounded border ${darkMode ? 'border-gray-600 text-gray-300' : 'border-gray-200 text-gray-600'}`}
+                onClick={() => setShowHistoryModal(false)}
+              >
+                关闭
+              </button>
+            </div>
+
+            {historyLoading && <div>加载中...</div>}
+
+            {!historyLoading && backtestHistory.length === 0 && (
+              <div className={`py-8 text-center ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
+                暂无历史回测记录，运行一次回测后会自动保存
+              </div>
+            )}
+
+            {!historyLoading && backtestHistory.length > 0 && (
+              <div className="overflow-x-auto">
+                <table className={`min-w-full ${darkMode ? 'text-gray-200' : ''}`}>
+                  <thead className={darkMode ? 'bg-gray-700' : 'bg-gray-50'}>
+                    <tr>
+                      <th className="px-3 py-2 text-left">策略</th>
+                      <th className="px-3 py-2 text-left">标的</th>
+                      <th className="px-3 py-2 text-right">总收益</th>
+                      <th className="px-3 py-2 text-right">年化</th>
+                      <th className="px-3 py-2 text-right">夏普</th>
+                      <th className="px-3 py-2 text-right">最大回撤</th>
+                      <th className="px-3 py-2 text-left">时间</th>
+                      <th className="px-3 py-2 text-center">操作</th>
+                    </tr>
+                  </thead>
+                  <tbody className={darkMode ? 'divide-y divide-gray-700' : 'divide-y divide-gray-200'}>
+                    {backtestHistory.map(history => (
+                      <tr key={history.id}>
+                        <td className={`px-3 py-2 ${darkMode ? 'text-white' : ''}`}>
+                          {history.strategy_name || `策略 #${history.strategy_id}`}
+                        </td>
+                        <td className={`px-3 py-2 font-mono ${darkMode ? 'text-white' : ''}`}>
+                          {history.symbol}
+                        </td>
+                        <td className={`px-3 py-2 text-right font-semibold ${getColorClass(history.total_return || 0)}`}>
+                          {history.total_return != null ? `${history.total_return.toFixed(2)}%` : '-'}
+                        </td>
+                        <td className={`px-3 py-2 text-right ${darkMode ? 'text-gray-300' : ''}`}>
+                          {history.annual_return != null ? `${history.annual_return.toFixed(2)}%` : '-'}
+                        </td>
+                        <td className={`px-3 py-2 text-right ${darkMode ? 'text-gray-300' : ''}`}>
+                          {history.sharpe_ratio != null ? history.sharpe_ratio.toFixed(2) : '-'}
+                        </td>
+                        <td className={`px-3 py-2 text-right ${darkMode ? 'text-gray-300' : ''}`}>
+                          {history.max_drawdown != null ? `${history.max_drawdown.toFixed(2)}%` : '-'}
+                        </td>
+                        <td className={`px-3 py-2 text-sm ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
+                          {new Date(history.created_at).toLocaleString()}
+                        </td>
+                        <td className="px-3 py-2 text-center">
+                          <button 
+                            className="text-red-500 hover:text-red-700 text-sm"
+                            onClick={async () => {
+                              if (!window.confirm('确认删除这条回测记录？')) return;
+                              try {
+                                await fetch(`${API_BASE}/strategies/backtest-results/${history.id}`, {
+                                  method: 'DELETE'
+                                });
+                                // 重新加载
+                                const res = await fetch(`${API_BASE}/strategies/backtest-results`);
+                                const data = await res.json();
+                                setBacktestHistory(data);
+                              } catch (err) {
+                                console.error('Delete failed:', err);
+                                alert('删除失败');
+                              }
+                            }}
+                          >
+                            删除
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
           </div>
         </div>
       )}
