@@ -89,6 +89,21 @@ def delete_strategy(strategy_id: int, db: Session = Depends(get_db)):
     return {"status": "ok", "message": "Strategy deleted"}
 
 
+@router.get("/cache/info")
+def cache_info():
+    """获取数据缓存信息"""
+    from src.services.data_fetcher import cache_info
+    return cache_info()
+
+
+@router.post("/cache/clear")
+def cache_clear():
+    """清除所有数据缓存"""
+    from src.services.data_fetcher import clear_cache
+    count = clear_cache()
+    return {"status": "ok", "cleared_files": count}
+
+
 @router.post("/{strategy_id}/run-backtest")
 def run_backtest(
     strategy_id: int,
