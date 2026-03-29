@@ -13,6 +13,7 @@ from src.services.backtest import (
     BuyAndHoldStrategy, 
     DollarCostAveragingStrategy,
     FixedWeightRebalancingStrategy,
+    MovingAverageCrossoverStrategy,
     BacktestResult
 )
 from src.services.data_fetcher import get_stock_data
@@ -136,6 +137,24 @@ def run_backtest(
                 rebalance_threshold=params.get("rebalance_threshold", 0.05)
             )
             result = strategy_obj.run(df)  # 债券用模拟
+        elif "均线" in strategy.name or "moving" in strategy_name_lower or "crossover" in strategy_name_lower:
+            # 解析参数，默认20/60
+            params = {"short_window": 20, "long_window": 60}
+            if strategy.parameters:
+                import json
+                try:
+                    params.update(json.loads(strategy.parameters))
+                except:
+                    pass
+            strategy_obj = MovingAverageCrossoverStrategy(
+                short_window=params.get("short_window", 20),
+                long_window=params.get("long_window", 60)
+            )
+            result = strategy_obj.run(df)
+        elif "动量" in strategy.name or "momentum" in strategy_name_lower:
+            # 动量策略默认使用20/60均线
+            strategy_obj = MovingAverageCrossoverStrategy(20, 60)
+            result = strategy_obj.run(df)
         elif "指数" in strategy.name:
             # 指数投资本质就是买入持有
             strategy_obj = BuyAndHoldStrategy(symbol)
@@ -185,3 +204,117 @@ def run_backtest(
         
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"回测失败: {str(e)}")
+
+
+@router.post("/compare")
+def compare_strategies(
+    symbol: str,
+    strategy_ids: str,
+    start_date: str = None,
+    end_date: str = None,
+    db: Session = Depends(get_db)
+):
+    """对比多个策略在同一标的上的回测结果
+    
+    Args:
+        symbol: 股票代码
+        strategy_ids: 逗号分隔的策略ID列表，如 "1,2,3"
+        start_date: 起始日期
+        end_date: 结束日期
+    """
+    # 解析策略ID列表
+    strategy_id_list = [int(sid.strip()) for sid in strategy_ids.split(",") if sid.strip()]
+    if len(strategy_id_list) < 2:
+        raise HTTPException(status_code=400, detail="至少需要选择两个策略进行对比")
+    
+    try:
+        # 获取数据一次，所有策略共用
+        df = get_stock_data(symbol, start_date, end_date)
+        if df.empty or len(df) < 10:
+            raise HTTPException(status_code=400, detail="获取数据失败或数据量不足")
+        
+        results = []
+        for sid in strategy_id_list:
+            strategy = db.query(InvestmentStrategy).filter(
+                InvestmentStrategy.id == sid
+            ).first()
+            if not strategy:
+                continue
+                
+            # 根据策略选择回测方法
+            strategy_name_lower = strategy.name.lower()
+            if "买入持有" in strategy.name or "buy and hold" in strategy_name_lower:
+                strategy_obj = BuyAndHoldStrategy(symbol)
+                result = strategy_obj.run(df)
+            elif "定投" in strategy.name or "dollar-cost" in strategy_name_lower:
+                strategy_obj = DollarCostAveragingStrategy(monthly_investment=1000)
+                result = strategy_obj.run(df)
+            elif "股债平衡" in strategy.name or "fixed.*weight" in strategy_name_lower:
+                params = {"stock_weight": 0.5, "bond_weight": 0.5, "rebalance_threshold": 0.05}
+                if strategy.parameters:
+                    import json
+                    try:
+                        params.update(json.loads(strategy.parameters))
+                    except:
+                        pass
+                strategy_obj = FixedWeightRebalancingStrategy(
+                    stock_weight=params.get("stock_weight", 0.5),
+                    bond_weight=params.get("bond_weight", 0.5),
+                    rebalance_threshold=params.get("rebalance_threshold", 0.05)
+                )
+                result = strategy_obj.run(df)
+            elif "均线" in strategy.name or "moving" in strategy_name_lower:
+                params = {"short_window": 20, "long_window": 60}
+                if strategy.parameters:
+                    import json
+                    try:
+                        params.update(json.loads(strategy.parameters))
+                    except:
+                        pass
+                strategy_obj = MovingAverageCrossoverStrategy(
+                    short_window=params.get("short_window", 20),
+                    long_window=params.get("long_window", 60)
+                )
+                result = strategy_obj.run(df)
+            else:
+                strategy_obj = BuyAndHoldStrategy(symbol)
+                result = strategy_obj.run(df)
+            
+            # 准备权益曲线数据
+            equity_data = []
+            if result.equity_curve is not None:
+                if len(result.equity_curve) > 500:
+                    step = len(result.equity_curve) // 500
+                    sampled = result.equity_curve.iloc[::step]
+                else:
+                    sampled = result.equity_curve
+                
+                for date, value in sampled.items():
+                    equity_data.append({
+                        "date": date.strftime("%Y-%m-%d"),
+                        "value": float(value)
+                    })
+            
+            results.append({
+                "strategy_id": strategy.id,
+                "strategy_name": strategy.name,
+                "category": strategy.category,
+                "total_return": result.total_return,
+                "annual_return": result.annual_return,
+                "sharpe_ratio": result.sharpe_ratio,
+                "max_drawdown": result.max_drawdown,
+                "equity_curve": equity_data,
+                "trades_count": len(result.trades)
+            })
+        
+        return {
+            "status": "ok",
+            "symbol": symbol,
+            "start_date": df.index[0].strftime("%Y-%m-%d"),
+            "end_date": df.index[-1].strftime("%Y-%m-%d"),
+            "trading_days": len(df),
+            "results": results
+        }
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"对比失败: {str(e)}")

@@ -241,3 +241,72 @@ class FixedWeightRebalancingStrategy:
         result.equity_curve = equity_series
         result.trades = trades
         return result
+
+
+class MovingAverageCrossoverStrategy:
+    """均线交叉策略（双均线）
+    
+    短期均线上穿长期均线 → 买入
+    短期均线下穿长期均线 → 卖出
+    """
+    def __init__(self, short_window: int = 20, long_window: int = 60):
+        self.short_window = short_window
+        self.long_window = long_window
+    
+    def run(self, prices: pd.DataFrame) -> BacktestResult:
+        """运行均线交叉策略回测"""
+        result = BacktestResult()
+        close = prices['close']
+        
+        # 计算均线
+        short_ma = close.rolling(self.short_window).mean()
+        long_ma = close.rolling(self.long_window).mean()
+        
+        # 计算金叉/死叉信号
+        signal = pd.Series(0, index=close.index)
+        signal[short_ma > long_ma] = 1  # 多头持仓
+        signal[short_ma < long_ma] = 0  # 空仓
+        
+        # 计算策略收益，假设持有股票时获得全部收益，空仓时收益为0
+        returns = close.pct_change()
+        strategy_returns = returns * signal.shift(1)
+        strategy_returns = strategy_returns.dropna()
+        
+        # 累计收益
+        cumulative = (1 + strategy_returns).cumprod()
+        
+        # 计算指标
+        result.total_return = (cumulative.iloc[-1] - 1) * 100
+        
+        n_days = len(strategy_returns)
+        years = n_days / 252
+        if years > 0:
+            result.annual_return = ((1 + result.total_return / 100) ** (1 / years) - 1) * 100
+        else:
+            result.annual_return = result.total_return
+        
+        if strategy_returns.std() != 0:
+            volatility = strategy_returns.std() * np.sqrt(252)
+            result.sharpe_ratio = (strategy_returns.mean() * 252) / volatility
+        else:
+            result.sharpe_ratio = 0
+        
+        peak = cumulative.cummax()
+        drawdown = (cumulative - peak) / peak
+        result.max_drawdown = drawdown.min() * 100
+        
+        result.equity_curve = cumulative
+        
+        # 记录交易信号
+        trades = []
+        prev_signal = 0
+        for date, sig in signal.items():
+            if sig != prev_signal:
+                if sig == 1:
+                    trades.append({"date": str(date), "type": "buy", "price": float(close.loc[date])})
+                else:
+                    trades.append({"date": str(date), "type": "sell", "price": float(close.loc[date])})
+                prev_signal = sig
+        result.trades = trades
+        
+        return result

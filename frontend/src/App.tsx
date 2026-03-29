@@ -106,6 +106,15 @@ function App() {
   const [backtestResult, setBacktestResult] = useState<any>(null);
   const [backtestLoading, setBacktestLoading] = useState(false);
 
+  // 策略对比相关状态
+  const [showCompareModal, setShowCompareModal] = useState(false);
+  const [compareSymbol, setCompareSymbol] = useState('');
+  const [compareStartDate, setCompareStartDate] = useState('');
+  const [compareEndDate, setCompareEndDate] = useState('');
+  const [selectedStrategyIds, setSelectedStrategyIds] = useState<number[]>([]);
+  const [compareResult, setCompareResult] = useState<any>(null);
+  const [compareLoading, setCompareLoading] = useState(false);
+
   // 加载投资组合列表
   const loadPortfolios = async () => {
     setLoading(true);
@@ -312,6 +321,12 @@ function App() {
           description: "投资科技赛道，包括芯片半导体、新能源、人工智能等符合发展方向的领域。\n\n逻辑：\n- 科技是长期核心驱动力\n- 国产替代空间广阔\n- 政策支持力度大",
           category: "成长投资",
           parameters: JSON.stringify({ sectors: ["半导体", "新能源", "AI"], growth_rate_min: 20 })
+        },
+        {
+          name: "双均线策略 (20/60)",
+          description: "基于移动平均线交叉的趋势跟踪策略。\n\n规则：\n- 短期均线(20日)上穿长期均线(60日) → 金叉买入\n- 短期均线下穿长期均线 → 死叉卖出\n- 只在多头趋势持仓，空仓时不参与下跌\n\n特点：\n- 趋势跟踪，顺势而为\n- 避免长期熊市亏损\n- 适合有一定波动的市场",
+          category: "趋势跟踪",
+          parameters: JSON.stringify({ short_window: 20, long_window: 60 })
         }
       ];
 
@@ -323,7 +338,7 @@ function App() {
         });
       }
 
-      alert('初始化完成，已添加8种经典策略');
+      alert('初始化完成，已添加9种经典策略');
       loadStrategies();
     } catch (err) {
       console.error('Failed to init strategies:', err);
@@ -423,6 +438,111 @@ function App() {
     }
   };
 
+  // 对比图表数据（多条曲线）
+  const getCompareChartData = () => {
+    if (!compareResult || !compareResult.results) return null;
+    
+    // 获取所有日期的并集
+    const allDates = new Set<string>();
+    compareResult.results.forEach((r: any) => {
+      r.equity_curve.forEach((p: any) => allDates.add(p.date));
+    });
+    const labels = Array.from(allDates).sort();
+    
+    // 为每个策略准备数据
+    const datasets = compareResult.results.map((r: any, idx: number) => {
+      const colors = [
+        'rgb(59, 130, 246)',
+        'rgb(34, 197, 94)',
+        'rgb(239, 68, 68)',
+        'rgb(168, 85, 247)',
+        'rgb(245, 158, 11)',
+      ];
+      const color = colors[idx % colors.length];
+      
+      // 将数据映射到所有日期（前向填充）
+      const data: number[] = [];
+      let lastValue = 1;
+      const valueMap: Record<string, number> = {};
+      r.equity_curve.forEach((p: any) => {
+        valueMap[p.date] = p.value;
+      });
+      
+      labels.forEach(date => {
+        if (valueMap[date] !== undefined) {
+          lastValue = valueMap[date];
+        }
+        data.push(lastValue);
+      });
+      
+      return {
+        label: r.strategy_name,
+        data,
+        borderColor: color,
+        backgroundColor: color.replace('rgb', 'rgba').replace(')', ', 0.1)'),
+        fill: false,
+        tension: 0.1
+      };
+    });
+    
+    return { labels, datasets };
+  };
+
+  // 切换策略选择
+  const toggleStrategySelection = (strategyId: number) => {
+    if (selectedStrategyIds.includes(strategyId)) {
+      setSelectedStrategyIds(selectedStrategyIds.filter(id => id !== strategyId));
+    } else {
+      setSelectedStrategyIds([...selectedStrategyIds, strategyId]);
+    }
+  };
+
+  // 运行对比
+  const runCompare = async () => {
+    if (!compareSymbol) {
+      alert('请输入股票代码');
+      return;
+    }
+    if (selectedStrategyIds.length < 2) {
+      alert('请至少选择两个策略进行对比');
+      return;
+    }
+
+    setCompareLoading(true);
+    try {
+      let url = `${API_BASE}/strategies/compare?symbol=${encodeURIComponent(compareSymbol)}&strategy_ids=${selectedStrategyIds.join(',')}`;
+      if (compareStartDate) url += `&start_date=${compareStartDate}`;
+      if (compareEndDate) url += `&end_date=${compareEndDate}`;
+
+      const res = await fetch(url, { method: 'POST' });
+      if (!res.ok) {
+        const err = await res.json();
+        alert(`对比失败: ${err.detail || '未知错误'}`);
+        return;
+      }
+      const data = await res.json();
+      setCompareResult(data);
+    } catch (err) {
+      console.error('Compare failed:', err);
+      alert('对比请求失败，请检查后端是否启动');
+    } finally {
+      setCompareLoading(false);
+    }
+  };
+
+  // 打开对比弹窗
+  const openCompare = () => {
+    // 默认最近5年
+    const end = new Date();
+    const start = new Date();
+    start.setFullYear(start.getFullYear() - 5);
+    setCompareEndDate(end.toISOString().split('T')[0]);
+    setCompareStartDate(start.toISOString().split('T')[0]);
+    setCompareResult(null);
+    setSelectedStrategyIds([]);
+    setShowCompareModal(true);
+  };
+
   useEffect(() => {
     loadPortfolios();
     loadStrategies();
@@ -443,6 +563,7 @@ function App() {
       case '成长投资': return 'bg-purple-100 text-purple-800';
       case '资产配置': return 'bg-yellow-100 text-yellow-800';
       case '行业轮动': return 'bg-orange-100 text-orange-800';
+      case '趋势跟踪': return 'bg-red-100 text-red-800';
       default: return 'bg-gray-100 text-gray-800';
     }
   };
@@ -733,22 +854,40 @@ function App() {
       {/* 投资策略标签 */}
       {activeTab === 'strategies' && (
         <>
-          <div className="mb-4 flex justify-between items-center">
+          <div className="mb-4 flex flex-wrap gap-2 justify-between items-center">
             <p className="text-gray-600">系统内置经典投资策略，可用于学习研究和回测</p>
-            <button 
-              className="bg-green-500 text-white px-4 py-2 rounded hover:bg-green-600"
-              onClick={initBuiltinStrategies}
-            >
-              📥 初始化内置策略
-            </button>
+            <div className="space-x-2">
+              <button 
+                className="bg-purple-500 text-white px-4 py-2 rounded hover:bg-purple-600"
+                onClick={openCompare}
+              >
+                ⚖️ 策略对比
+              </button>
+              <button 
+                className="bg-green-500 text-white px-4 py-2 rounded hover:bg-green-600"
+                onClick={initBuiltinStrategies}
+              >
+                📥 初始化内置策略
+              </button>
+            </div>
           </div>
 
           {/* 策略列表 */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {strategies.map(s => (
-              <div key={s.id} className="border rounded-lg p-5 bg-white hover:shadow-md transition">
+              <div key={s.id} className={`border rounded-lg p-5 bg-white hover:shadow-md transition ${selectedStrategyIds.includes(s.id) ? 'border-purple-500 bg-purple-50' : 'border-gray-200'}`}>
                 <div className="flex justify-between items-start mb-2">
-                  <h3 className="text-xl font-semibold">{s.name}</h3>
+                  <div className="flex items-center">
+                    {showCompareModal && (
+                      <input 
+                        type="checkbox" 
+                        checked={selectedStrategyIds.includes(s.id)}
+                        onChange={() => toggleStrategySelection(s.id)}
+                        className="mr-2 h-4 w-4"
+                      />
+                    )}
+                    <h3 className="text-xl font-semibold">{s.name}</h3>
+                  </div>
                   <span className={`px-2 py-1 rounded-full text-xs font-medium ${getCategoryBadgeClass(s.category || '')}`}>
                     {s.category}
                   </span>
@@ -918,6 +1057,124 @@ function App() {
                 )}
               </div>
             )}
+          </div>
+        </div>
+      )}
+
+      {/* 策略对比弹窗 */}
+      {showCompareModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center overflow-y-auto">
+          <div className="bg-white p-6 rounded-lg w-full max-w-5xl max-h-[90vh] overflow-y-auto">
+            <h3 className="text-2xl font-bold mb-4">
+              ⚖️ 策略对比
+            </h3>
+            
+            {/* 输入参数 */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">股票代码 *</label>
+                <input 
+                  type="text" 
+                  placeholder="A股: 600000, 美股: AAPL"
+                  className="w-full border rounded px-3 py-2"
+                  value={compareSymbol}
+                  onChange={e => setCompareSymbol(e.target.value)}
+                />
+                <p className="text-xs text-gray-500 mt-1">纯数字识别为A股，字母识别为美股</p>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">开始日期</label>
+                <input 
+                  type="date" 
+                  className="w-full border rounded px-3 py-2"
+                  value={compareStartDate}
+                  onChange={e => setCompareStartDate(e.target.value)}
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">结束日期</label>
+                <input 
+                  type="date" 
+                  className="w-full border rounded px-3 py-2"
+                  value={compareEndDate}
+                  onChange={e => setCompareEndDate(e.target.value)}
+                />
+              </div>
+            </div>
+
+            <div className="mb-4">
+              <p className="text-sm text-gray-600 mb-2">
+                已选择 {selectedStrategyIds.length} 个策略进行对比。在上方列表点击勾选策略。
+              </p>
+            </div>
+
+            <div className="mb-6">
+              <button 
+                className="bg-blue-500 text-white px-6 py-2 rounded hover:bg-blue-600 disabled:opacity-50"
+                onClick={runCompare}
+                disabled={compareLoading}
+              >
+                {compareLoading ? '计算中...' : '开始对比'}
+              </button>
+              <button 
+                className="ml-2 px-4 py-2 border rounded text-gray-600 hover:bg-gray-50"
+                onClick={() => setShowCompareModal(false)}
+              >
+                关闭
+              </button>
+            </div>
+
+            {/* 对比结果表格 */}
+            {compareResult && compareResult.results && (
+              <>
+              <div className="mb-6">
+                <h4 className="text-lg font-semibold mb-3">对比指标</h4>
+                <div className="overflow-x-auto">
+                  <table className="min-w-full border-collapse">
+                    <thead>
+                      <tr className="bg-gray-50 border-b">
+                        <th className="text-left p-2">策略</th>
+                        <th className="text-right p-2">总收益</th>
+                        <th className="text-right p-2">年化收益</th>
+                        <th className="text-right p-2">夏普比率</th>
+                        <th className="text-right p-2">最大回撤</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {compareResult.results.map((r: any) => (
+                        <tr key={r.strategy_id} className="border-b hover:bg-gray-50">
+                          <td className="p-2">
+                            <div className="font-medium">{r.strategy_name}</div>
+                            <div className="text-xs text-gray-500">{r.category}</div>
+                          </td>
+                          <td className={`p-2 text-right font-semibold ${getColorClass(r.total_return)}`}>
+                            {r.total_return.toFixed(2)}%
+                          </td>
+                          <td className={`p-2 text-right font-semibold ${getColorClass(r.annual_return)}`}>
+                            {r.annual_return.toFixed(2)}%
+                          </td>
+                          <td className="p-2 text-right font-semibold">
+                            {r.sharpe_ratio.toFixed(2)}
+                          </td>
+                          <td className={`p-2 text-right font-semibold ${getColorClass(-r.max_drawdown)}`}>
+                            {r.max_drawdown.toFixed(2)}%
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+              {/* 权益曲线图 */}
+              {compareResult.results[0] && compareResult.results[0].equity_curve && (
+                <div className="h-80 border rounded p-4 bg-white">
+                  <h4 className="text-lg font-semibold mb-3">权益曲线对比</h4>
+                  <Line data={getCompareChartData()!} options={chartOptions} />
+                </div>
+              )}
+            </>
+          )}
           </div>
         </div>
       )}
