@@ -14,6 +14,9 @@ from src.services.backtest import (
     DollarCostAveragingStrategy,
     FixedWeightRebalancingStrategy,
     MovingAverageCrossoverStrategy,
+    GrahamDefensiveStrategy,
+    Momentum12MonthStrategy,
+    LowVolatilityStrategy,
     BacktestResult
 )
 from src.services.data_fetcher import get_stock_data
@@ -151,12 +154,35 @@ def run_backtest(
                 long_window=params.get("long_window", 60)
             )
             result = strategy_obj.run(df)
+        elif "格雷厄姆" in strategy.name or "defensive" in strategy_name_lower:
+            # 解析参数，默认 PE<15 PB<1.5
+            params = {"pe_threshold": 15, "pb_threshold": 1.5}
+            if strategy.parameters:
+                import json
+                try:
+                    params.update(json.loads(strategy.parameters))
+                except:
+                    pass
+            strategy_obj = GrahamDefensiveStrategy(
+                pe_threshold=params.get("pe_threshold", 15),
+                pb_threshold=params.get("pb_threshold", 1.5)
+            )
+            result = strategy_obj.run(df)
         elif "动量" in strategy.name or "momentum" in strategy_name_lower:
-            # 动量策略默认使用20/60均线
-            strategy_obj = MovingAverageCrossoverStrategy(20, 60)
+            # 解析参数，默认12个月(252交易日)
+            params = {"momentum_window": 252}
+            if strategy.parameters:
+                import json
+                try:
+                    params.update(json.loads(strategy.parameters))
+                except:
+                    pass
+            strategy_obj = Momentum12MonthStrategy(
+                momentum_window=params.get("momentum_window", 252)
+            )
             result = strategy_obj.run(df)
         elif "波动" in strategy.name or "volatility" in strategy_name_lower:
-            # 解析参数
+            # 解析参数，默认20窗口 2%阈值
             params = {"volatility_window": 20, "volatility_threshold": 0.02}
             if strategy.parameters:
                 import json
@@ -288,6 +314,31 @@ def compare_strategies(
                 strategy_obj = MovingAverageCrossoverStrategy(
                     short_window=params.get("short_window", 20),
                     long_window=params.get("long_window", 60)
+                )
+                result = strategy_obj.run(df)
+            elif "格雷厄姆" in strategy.name or "defensive" in strategy_name_lower:
+                params = {"pe_threshold": 15, "pb_threshold": 1.5}
+                if strategy.parameters:
+                    import json
+                    try:
+                        params.update(json.loads(strategy.parameters))
+                    except:
+                        pass
+                strategy_obj = GrahamDefensiveStrategy(
+                    pe_threshold=params.get("pe_threshold", 15),
+                    pb_threshold=params.get("pb_threshold", 1.5)
+                )
+                result = strategy_obj.run(df)
+            elif "动量" in strategy.name or "momentum" in strategy_name_lower:
+                params = {"momentum_window": 252}
+                if strategy.parameters:
+                    import json
+                    try:
+                        params.update(json.loads(strategy.parameters))
+                    except:
+                        pass
+                strategy_obj = Momentum12MonthStrategy(
+                    momentum_window=params.get("momentum_window", 252)
                 )
                 result = strategy_obj.run(df)
             elif "波动" in strategy.name or "volatility" in strategy_name_lower:

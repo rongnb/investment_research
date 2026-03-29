@@ -301,7 +301,7 @@ class MovingAverageCrossoverStrategy:
         trades = []
         prev_signal = 0
         for date, sig in signal.items():
-            if sig != prev_signal and not pd.isna(sig):
+            if sig != prev_signal:
                 if sig == 1:
                     trades.append({"date": str(date), "type": "buy", "price": float(close.loc[date])})
                 else:
@@ -397,7 +397,7 @@ class GrahamDefensiveStrategy:
     def run(self, prices: pd.DataFrame, pe: pd.Series = None, pb: pd.Series = None) -> BacktestResult:
         """运行格雷厄姆策略回测
         
-        如果没有提供PE/PB，简单用价格波动率替代（低估通常价格波动小）
+        如果没有提供PE/PB，简单用价格波动率替代（低估通常价格表现稳定）
         """
         result = BacktestResult()
         close = prices['close']
@@ -424,4 +424,5 @@ class GrahamDefensiveStrategy:
         # 计算指标
         result.total_return = (cumulative.iloc[-1] - 1) * 100
         
-        n_days = len
+        n_days = len(strategy_returns)
+        years = n
