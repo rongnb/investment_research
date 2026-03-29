@@ -46,9 +46,17 @@ function App() {
   const [summary, setSummary] = useState<PortfolioSummary | null>(null);
   const [loading, setLoading] = useState(false);
   const [showAddModal, setShowAddModal] = useState(false);
+  const [showAddHoldingModal, setShowAddHoldingModal] = useState(false);
   const [newPortfolioName, setNewPortfolioName] = useState('');
   const [newPortfolioDesc, setNewPortfolioDesc] = useState('');
   const [newCash, setNewCash] = useState('0');
+  
+  // 添加持仓表单
+  const [newHoldingSymbol, setNewHoldingSymbol] = useState('');
+  const [newHoldingName, setNewHoldingName] = useState('');
+  const [newHoldingQuantity, setNewHoldingQuantity] = useState('');
+  const [newHoldingCost, setNewHoldingCost] = useState('');
+  const [newHoldingType, setNewHoldingType] = useState('stock');
 
   // 加载投资组合列表
   const loadPortfolios = async () => {
@@ -124,6 +132,65 @@ function App() {
     }
   };
 
+  // 添加持仓
+  const addHolding = async () => {
+    if (!selectedPortfolio) return;
+    if (!newHoldingSymbol || !newHoldingQuantity || !newHoldingCost) {
+      alert('请填写必填项：代码、数量、成本价');
+      return;
+    }
+
+    try {
+      const res = await fetch(`${API_BASE}/portfolio/${selectedPortfolio.id}/holdings`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          symbol: newHoldingSymbol,
+          name: newHoldingName,
+          quantity: parseFloat(newHoldingQuantity),
+          cost_basis: parseFloat(newHoldingCost),
+          asset_type: newHoldingType
+        })
+      });
+      if (res.ok) {
+        // 重新加载
+        loadPortfolioDetail(selectedPortfolio);
+        loadPortfolios();
+        setShowAddHoldingModal(false);
+        // 清空表单
+        setNewHoldingSymbol('');
+        setNewHoldingName('');
+        setNewHoldingQuantity('');
+        setNewHoldingCost('');
+      } else {
+        alert('添加失败');
+      }
+    } catch (err) {
+      console.error('Failed to add holding:', err);
+      alert('添加失败');
+    }
+  };
+
+  // 删除持仓
+  const deleteHolding = async (holdingId: number) => {
+    if (!selectedPortfolio || !window.confirm('确认删除此持仓？')) return;
+    
+    try {
+      const res = await fetch(`${API_BASE}/portfolio/${selectedPortfolio.id}/holdings/${holdingId}`, {
+        method: 'DELETE'
+      });
+      if (res.ok) {
+        loadPortfolioDetail(selectedPortfolio);
+        loadPortfolios();
+      } else {
+        alert('删除失败');
+      }
+    } catch (err) {
+      console.error('Failed to delete holding:', err);
+      alert('删除失败');
+    }
+  };
+
   useEffect(() => {
     loadPortfolios();
   }, []);
@@ -175,12 +242,20 @@ function App() {
         <div className="bg-white rounded-lg border border-gray-200 p-6">
           <div className="mb-4 flex justify-between items-center">
             <h2 className="text-2xl font-bold">{selectedPortfolio.name}</h2>
-            <button 
-              className="bg-green-500 text-white px-3 py-1 rounded hover:bg-green-600 text-sm"
-              onClick={() => updatePrices(selectedPortfolio.id)}
-            >
-              🔄 更新价格
-            </button>
+            <div className="space-x-2">
+              <button 
+                className="bg-blue-500 text-white px-3 py-1 rounded hover:bg-blue-600 text-sm"
+                onClick={() => setShowAddHoldingModal(true)}
+              >
+                + 添加持仓
+              </button>
+              <button 
+                className="bg-green-500 text-white px-3 py-1 rounded hover:bg-green-600 text-sm"
+                onClick={() => updatePrices(selectedPortfolio.id)}
+              >
+                🔄 更新价格
+              </button>
+            </div>
           </div>
 
           {/* 汇总信息 */}
@@ -220,6 +295,7 @@ function App() {
                   <th className="text-right p-2">总成本</th>
                   <th className="text-right p-2">市值</th>
                   <th className="text-right p-2">盈亏</th>
+                  <th className="text-right p-2">操作</th>
                 </tr>
               </thead>
               <tbody>
@@ -240,6 +316,14 @@ function App() {
                           <small>({(h.gain_loss_percent || 0).toFixed(2)}%)</small>
                         </>
                       ) : '-'}
+                    </td>
+                    <td className="p-2 text-right">
+                      <button 
+                        className="text-red-500 hover:text-red-700 text-sm"
+                        onClick={() => deleteHolding(h.id)}
+                      >
+                        删除
+                      </button>
                     </td>
                   </tr>
                 ))}
@@ -294,6 +378,86 @@ function App() {
                 onClick={createPortfolio}
               >
                 创建
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 添加持仓弹窗 */}
+      {showAddHoldingModal && selectedPortfolio && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center">
+          <div className="bg-white p-6 rounded-lg w-96">
+            <h3 className="text-xl font-bold mb-4">添加持仓 · {selectedPortfolio.name}</h3>
+            <div className="space-y-3">
+              <div>
+                <label className="block text-sm font-medium text-gray-700">代码 *</label>
+                <input 
+                  type="text" 
+                  placeholder="A股 600000，美股 AAPL"
+                  className="w-full border rounded px-3 py-2"
+                  value={newHoldingSymbol}
+                  onChange={e => setNewHoldingSymbol(e.target.value)}
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700">名称</label>
+                <input 
+                  type="text" 
+                  placeholder="贵州茅台"
+                  className="w-full border rounded px-3 py-2"
+                  value={newHoldingName}
+                  onChange={e => setNewHoldingName(e.target.value)}
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">数量 *</label>
+                  <input 
+                    type="number" 
+                    step="0.01"
+                    className="w-full border rounded px-3 py-2"
+                    value={newHoldingQuantity}
+                    onChange={e => setNewHoldingQuantity(e.target.value)}
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">成本价 *</label>
+                  <input 
+                    type="number" 
+                    step="0.01"
+                    className="w-full border rounded px-3 py-2"
+                    value={newHoldingCost}
+                    onChange={e => setNewHoldingCost(e.target.value)}
+                  />
+                </div>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700">资产类型</label>
+                <select 
+                  className="w-full border rounded px-3 py-2"
+                  value={newHoldingType}
+                  onChange={e => setNewHoldingType(e.target.value)}
+                >
+                  <option value="stock">股票</option>
+                  <option value="etf">ETF</option>
+                  <option value="fund">基金</option>
+                  <option value="bond">债券</option>
+                </select>
+              </div>
+            </div>
+            <div className="flex justify-end space-x-2 mt-6">
+              <button 
+                className="px-4 py-2 border rounded text-gray-600 hover:bg-gray-50"
+                onClick={() => setShowAddHoldingModal(false)}
+              >
+                取消
+              </button>
+              <button 
+                className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
+                onClick={addHolding}
+              >
+                添加
               </button>
             </div>
           </div>
