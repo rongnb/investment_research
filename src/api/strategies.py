@@ -17,6 +17,7 @@ from src.services.backtest import (
     GrahamDefensiveStrategy,
     Momentum12MonthStrategy,
     LowVolatilityStrategy,
+    TurtleTrendFollowingStrategy,
     BacktestResult
 )
 from src.services.data_fetcher import get_stock_data
@@ -208,6 +209,21 @@ def run_backtest(
             strategy_obj = LowVolatilityStrategy(
                 volatility_window=params.get("volatility_window", 20),
                 volatility_threshold=params.get("volatility_threshold", 0.02)
+            )
+            result = strategy_obj.run(df)
+        elif "海龟" in strategy.name or "turtle" in strategy_name_lower or "趋势" in strategy_name_lower:
+            # 解析参数，默认20日新高入场，10日新低离场
+            params = {"entry_window": 20, "exit_window": 10, "atr_window": 20}
+            if strategy.parameters:
+                import json
+                try:
+                    params.update(json.loads(strategy.parameters))
+                except:
+                    pass
+            strategy_obj = TurtleTrendFollowingStrategy(
+                entry_window=params.get("entry_window", 20),
+                exit_window=params.get("exit_window", 10),
+                atr_window=params.get("atr_window", 20)
             )
             result = strategy_obj.run(df)
         elif "指数" in strategy.name:
@@ -413,6 +429,20 @@ def compare_strategies(
                 strategy_obj = LowVolatilityStrategy(
                     volatility_window=params.get("volatility_window", 20),
                     volatility_threshold=params.get("volatility_threshold", 0.02)
+                )
+                result = strategy_obj.run(df)
+            elif "海龟" in strategy.name or "turtle" in strategy_name_lower or "趋势" in strategy_name_lower:
+                params = {"entry_window": 20, "exit_window": 10, "atr_window": 20}
+                if strategy.parameters:
+                    import json
+                    try:
+                        params.update(json.loads(strategy.parameters))
+                    except:
+                        pass
+                strategy_obj = TurtleTrendFollowingStrategy(
+                    entry_window=params.get("entry_window", 20),
+                    exit_window=params.get("exit_window", 10),
+                    atr_window=params.get("atr_window", 20)
                 )
                 result = strategy_obj.run(df)
             else:

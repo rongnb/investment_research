@@ -424,4 +424,198 @@ class GrahamDefensiveStrategy:
         # 计算指标
         result.total_return = (cumulative.iloc[-1] - 1) * 100
         
-        n_days = len
+        n_days = len(strategy_returns)
+        years = n_days / 252
+        if years > 0:
+            result.annual_return = ((1 + result.total_return / 100) ** (1 / years) - 1) * 100
+        else:
+            result.annual_return = result.total_return
+        
+        if strategy_returns.std() != 0:
+            volatility = strategy_returns.std() * np.sqrt(252)
+            result.sharpe_ratio = (strategy_returns.mean() * 252) / volatility
+        else:
+            result.sharpe_ratio = 0
+        
+        peak = cumulative.cummax()
+        drawdown = (cumulative - peak) / peak
+        result.max_drawdown = drawdown.min() * 100
+        
+        result.equity_curve = cumulative
+        
+        # 记录交易信号
+        trades = []
+        prev_signal = 0
+        for date, sig in signal.items():
+            if sig != prev_signal and not pd.isna(sig):
+                if sig == 1:
+                    trades.append({"date": str(date), "type": "buy", "pe": float(pe.loc[date]) if pe is not None else None})
+                else:
+                    trades.append({"date": str(date), "type": "sell", "pe": float(pe.loc[date]) if pe is not None else None})
+                prev_signal = sig
+        result.trades = trades
+        
+        return result
+
+
+class Momentum12MonthStrategy:
+    """12个月动量策略
+    
+    每年调仓，持有过去12个月涨幅最高的资产
+    这里实现为：根据过去12个月收益判断是否持有该资产
+    如果过去12个月收益为正，则持有，否则空仓
+    """
+    def __init__(self, momentum_window: int = 252):
+        self.momentum_window = momentum_window  # 动量窗口（交易日）
+    
+    def run(self, prices: pd.DataFrame) -> BacktestResult:
+        """运行12个月动量策略回测"""
+        result = BacktestResult()
+        close = prices['close']
+        returns = close.pct_change()
+        
+        # 计算滚动过去N日的收益
+        rolling_returns = close.pct_change(self.momentum_window)
+        
+        # 信号：过去N日收益 > 0 则持有
+        signal = pd.Series(0, index=close.index)
+        signal[rolling_returns > 0] = 1
+        
+        # 计算策略收益
+        strategy_returns = returns * signal.shift(1)
+        strategy_returns = strategy_returns.dropna()
+        
+        # 累计收益
+        cumulative = (1 + strategy_returns).cumprod()
+        
+        # 计算指标
+        result.total_return = (cumulative.iloc[-1] - 1) * 100
+        
+        n_days = len(strategy_returns)
+        years = n_days / 252
+        if years > 0:
+            result.annual_return = ((1 + result.total_return / 100) ** (1 / years) - 1) * 100
+        else:
+            result.annual_return = result.total_return
+        
+        if strategy_returns.std() != 0:
+            volatility = strategy_returns.std() * np.sqrt(252)
+            result.sharpe_ratio = (strategy_returns.mean() * 252) / volatility
+        else:
+            result.sharpe_ratio = 0
+        
+        peak = cumulative.cummax()
+        drawdown = (cumulative - peak) / peak
+        result.max_drawdown = drawdown.min() * 100
+        
+        result.equity_curve = cumulative
+        
+        # 记录调仓信号
+        trades = []
+        prev_signal = 0
+        for date, sig in signal.items():
+            if sig != prev_signal and not pd.isna(sig):
+                if sig == 1:
+                    trades.append({
+                        "date": str(date), 
+                        "type": "buy", 
+                        "momentum_return": float(rolling_returns.loc[date])
+                    })
+                else:
+                    trades.append({
+                        "date": str(date), 
+                        "type": "sell", 
+                        "momentum_return": float(rolling_returns.loc[date])
+                    })
+                prev_signal = sig
+        result.trades = trades
+        
+        return result
+
+
+class TurtleTrendFollowingStrategy:
+    """海龟交易法则 - 趋势跟随策略
+    
+    经典海龟交易法则：
+    - 20日新高买入
+    - 10日新低卖出
+    - 使用ATR进行仓位管理
+    """
+    def __init__(self, entry_window: int = 20, exit_window: int = 10, atr_window: int = 20):
+        self.entry_window = entry_window  # 入场窗口：N日新高
+        self.exit_window = exit_window    # 离场窗口：N日新低
+        self.atr_window = atr_window      # ATR计算窗口
+    
+    def run(self, prices: pd.DataFrame) -> BacktestResult:
+        """运行海龟交易策略回测"""
+        result = BacktestResult()
+        close = prices['close']
+        high = prices.get('high', close)
+        low = prices.get('low', close)
+        
+        # 计算N日最高/最低
+        highest_high = high.rolling(self.entry_window).max()
+        lowest_low = low.rolling(self.exit_window).min()
+        
+        # 计算ATR (真实波动幅度均值)
+        tr = pd.DataFrame()
+        tr['tr1'] = high - low
+        tr['tr2'] = abs(high - close.shift(1))
+        tr['tr3'] = abs(low - close.shift(1))
+        tr['true_range'] = tr.max(axis=1)
+        atr = tr['true_range'].rolling(self.atr_window).mean()
+        
+        # 生成信号
+        # 价格突破20日新高 → 买入(1)
+        # 价格跌破10日新低 → 卖出(0)
+        signal = pd.Series(0, index=close.index)
+        signal[close > highest_high] = 1
+        signal[close < lowest_low] = 0
+        signal = signal.ffill().fillna(0)
+        
+        # 计算策略收益
+        returns = close.pct_change()
+        strategy_returns = returns * signal.shift(1)
+        strategy_returns = strategy_returns.dropna()
+        
+        # 累计收益
+        cumulative = (1 + strategy_returns).cumprod()
+        
+        # 计算指标
+        result.total_return = (cumulative.iloc[-1] - 1) * 100
+        
+        n_days = len(strategy_returns)
+        years = n_days / 252
+        if years > 0:
+            result.annual_return = ((1 + result.total_return / 100) ** (1 / years) - 1) * 100
+        else:
+            result.annual_return = result.total_return
+        
+        if strategy_returns.std() != 0:
+            volatility = strategy_returns.std() * np.sqrt(252)
+            result.sharpe_ratio = (strategy_returns.mean() * 252) / volatility
+        else:
+            result.sharpe_ratio = 0
+        
+        peak = cumulative.cummax()
+        drawdown = (cumulative - peak) / peak
+        result.max_drawdown = drawdown.min() * 100
+        
+        result.equity_curve = cumulative
+        result.atr = float(atr.iloc[-1]) if not pd.isna(atr.iloc[-1]) else None
+        
+        # 记录交易信号
+        trades = []
+        prev_signal = 0
+        for date, sig in signal.items():
+            if sig != prev_signal and not pd.isna(sig):
+                trades.append({
+                    "date": str(date),
+                    "type": "buy" if sig == 1 else "sell",
+                    "price": float(close.loc[date]),
+                    "atr": float(atr.loc[date]) if not pd.isna(atr.loc[date]) else None
+                })
+                prev_signal = sig
+        result.trades = trades
+        
+        return result
