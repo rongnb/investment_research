@@ -54,8 +54,15 @@ class BacktestResultBase(BaseModel):
     total_return: Optional[float] = None
     annual_return: Optional[float] = None
     sharpe_ratio: Optional[float] = None
+    sortino_ratio: Optional[float] = None
+    calmar_ratio: Optional[float] = None
     max_drawdown: Optional[float] = None
     volatility: Optional[float] = None
+    win_rate: Optional[float] = None
+    profit_loss_ratio: Optional[float] = None
+    total_trades: Optional[int] = None
+    drawdown_duration: Optional[int] = None
+    transaction_costs: Optional[float] = None
     equity_curve: Optional[str] = None
     note: Optional[str] = None
 

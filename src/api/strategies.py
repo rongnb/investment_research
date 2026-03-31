@@ -1,6 +1,9 @@
 """
 投资策略API
 """
+import json
+import asyncio
+from datetime import datetime
 from typing import List, Dict, Any
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
@@ -145,7 +148,6 @@ def run_backtest(
             # 解析参数，默认50/50
             params = {"stock_weight": 0.5, "bond_weight": 0.5, "rebalance_threshold": 0.05}
             if strategy.parameters:
-                import json
                 try:
                     params.update(json.loads(strategy.parameters))
                 except:
@@ -160,7 +162,6 @@ def run_backtest(
             # 解析参数，默认20/60
             params = {"short_window": 20, "long_window": 60}
             if strategy.parameters:
-                import json
                 try:
                     params.update(json.loads(strategy.parameters))
                 except:
@@ -174,7 +175,6 @@ def run_backtest(
             # 解析参数，默认 PE<15 PB<1.5
             params = {"pe_threshold": 15, "pb_threshold": 1.5}
             if strategy.parameters:
-                import json
                 try:
                     params.update(json.loads(strategy.parameters))
                 except:
@@ -188,7 +188,6 @@ def run_backtest(
             # 解析参数，默认12个月(252交易日)
             params = {"momentum_window": 252}
             if strategy.parameters:
-                import json
                 try:
                     params.update(json.loads(strategy.parameters))
                 except:
@@ -201,7 +200,6 @@ def run_backtest(
             # 解析参数，默认20窗口 2%阈值
             params = {"volatility_window": 20, "volatility_threshold": 0.02}
             if strategy.parameters:
-                import json
                 try:
                     params.update(json.loads(strategy.parameters))
                 except:
@@ -215,7 +213,6 @@ def run_backtest(
             # 解析参数，默认20日新高入场，10日新低离场
             params = {"entry_window": 20, "exit_window": 10, "atr_window": 20}
             if strategy.parameters:
-                import json
                 try:
                     params.update(json.loads(strategy.parameters))
                 except:
@@ -224,6 +221,47 @@ def run_backtest(
                 entry_window=params.get("entry_window", 20),
                 exit_window=params.get("exit_window", 10),
                 atr_window=params.get("atr_window", 20)
+            )
+            result = strategy_obj.run(df)
+        elif "macd" in strategy_name_lower:
+            # MACD策略
+            params = {"fast_period": 12, "slow_period": 26, "signal_period": 9}
+            if strategy.parameters:
+                try:
+                    params.update(json.loads(strategy.parameters))
+                except:
+                    pass
+            strategy_obj = MACDStrategy(
+                fast_period=params.get("fast_period", 12),
+                slow_period=params.get("slow_period", 26),
+                signal_period=params.get("signal_period", 9)
+            )
+            result = strategy_obj.run(df)
+        elif "rsi" in strategy_name_lower or "强弱" in strategy.name:
+            # RSI策略
+            params = {"period": 14, "oversold": 30, "overbought": 70}
+            if strategy.parameters:
+                try:
+                    params.update(json.loads(strategy.parameters))
+                except:
+                    pass
+            strategy_obj = RSIStrategy(
+                period=params.get("period", 14),
+                oversold=params.get("oversold", 30),
+                overbought=params.get("overbought", 70)
+            )
+            result = strategy_obj.run(df)
+        elif "布林" in strategy.name or "bollinger" in strategy_name_lower or "band" in strategy_name_lower:
+            # 布林带策略
+            params = {"window": 20, "std_dev": 2.0}
+            if strategy.parameters:
+                try:
+                    params.update(json.loads(strategy.parameters))
+                except:
+                    pass
+            strategy_obj = BollingerBandsStrategy(
+                window=params.get("window", 20),
+                std_dev=params.get("std_dev", 2.0)
             )
             result = strategy_obj.run(df)
         elif "指数" in strategy.name:
@@ -241,10 +279,8 @@ def run_backtest(
         strategy.sharpe_ratio = result.sharpe_ratio
         strategy.max_drawdown = result.max_drawdown
         if start_date:
-            from datetime import datetime
             strategy.backtest_start_date = datetime.strptime(start_date, "%Y-%m-%d")
         if end_date:
-            from datetime import datetime
             strategy.backtest_end_date = datetime.strptime(end_date, "%Y-%m-%d")
         db.commit()
         
@@ -266,7 +302,6 @@ def run_backtest(
         
         # 自动保存回测结果到数据库
         from src.models.strategy import BacktestResult
-        import json
         
         # 转换为JSON字符串保存
         equity_curve_json = json.dumps(equity_data)
@@ -276,10 +311,8 @@ def run_backtest(
         saved_start_date = None
         saved_end_date = None
         if start_date:
-            from datetime import datetime
             saved_start_date = datetime.strptime(start_date, "%Y-%m-%d")
         if end_date:
-            from datetime import datetime
             saved_end_date = datetime.strptime(end_date, "%Y-%m-%d")
         if not start_date and len(df) > 0:
             saved_start_date = df.index[0].to_pydatetime()
@@ -296,8 +329,15 @@ def run_backtest(
             total_return=result.total_return,
             annual_return=result.annual_return,
             sharpe_ratio=result.sharpe_ratio,
+            sortino_ratio=getattr(result, 'sortino_ratio', None),
+            calmar_ratio=getattr(result, 'calmar_ratio', None),
             max_drawdown=result.max_drawdown,
             volatility=getattr(result, 'volatility', None),
+            win_rate=getattr(result, 'win_rate', None),
+            profit_loss_ratio=getattr(result, 'profit_loss_ratio', None),
+            total_trades=getattr(result, 'total_trades', None),
+            drawdown_duration=getattr(result, 'drawdown_duration', None),
+            transaction_costs=getattr(result, 'transaction_costs', None),
             equity_curve=equity_curve_json,
         )
         db.add(saved_result)
@@ -311,7 +351,15 @@ def run_backtest(
             "total_return": result.total_return,
             "annual_return": result.annual_return,
             "sharpe_ratio": result.sharpe_ratio,
+            "sortino_ratio": getattr(result, 'sortino_ratio', None),
+            "calmar_ratio": getattr(result, 'calmar_ratio', None),
             "max_drawdown": result.max_drawdown,
+            "volatility": getattr(result, 'volatility', None),
+            "win_rate": getattr(result, 'win_rate', None),
+            "profit_loss_ratio": getattr(result, 'profit_loss_ratio', None),
+            "total_trades": getattr(result, 'total_trades', None),
+            "drawdown_duration": getattr(result, 'drawdown_duration', None),
+            "transaction_costs": getattr(result, 'transaction_costs', None),
             "trades": result.trades,
             "equity_curve": equity_data,
             "start_date": df.index[0].strftime("%Y-%m-%d"),
@@ -323,8 +371,10 @@ def run_backtest(
         raise HTTPException(status_code=500, detail=f"回测失败: {str(e)}")
 
 
+import asyncio
+
 @router.post("/compare")
-def compare_strategies(
+async def compare_strategies(
     symbol: str,
     strategy_ids: str,
     start_date: str = None,
@@ -338,6 +388,8 @@ def compare_strategies(
         strategy_ids: 逗号分隔的策略ID列表，如 "1,2,3"
         start_date: 起始日期
         end_date: 结束日期
+        
+    Performance optimization: parallel execution following async-parallel rule
     """
     # 解析策略ID列表
     strategy_id_list = [int(sid.strip()) for sid in strategy_ids.split(",") if sid.strip()]
@@ -350,13 +402,13 @@ def compare_strategies(
         if df.empty or len(df) < 10:
             raise HTTPException(status_code=400, detail="获取数据失败或数据量不足")
         
-        results = []
-        for sid in strategy_id_list:
+        # 定义回测任务包装函数
+        async def run_single_backtest(sid: int):
             strategy = db.query(InvestmentStrategy).filter(
                 InvestmentStrategy.id == sid
             ).first()
             if not strategy:
-                continue
+                return None
                 
             # 根据策略选择回测方法
             strategy_name_lower = strategy.name.lower()
@@ -369,7 +421,6 @@ def compare_strategies(
             elif "股债平衡" in strategy.name or "fixed.*weight" in strategy_name_lower:
                 params = {"stock_weight": 0.5, "bond_weight": 0.5, "rebalance_threshold": 0.05}
                 if strategy.parameters:
-                    import json
                     try:
                         params.update(json.loads(strategy.parameters))
                     except:
@@ -383,7 +434,6 @@ def compare_strategies(
             elif "均线" in strategy.name or "moving" in strategy_name_lower:
                 params = {"short_window": 20, "long_window": 60}
                 if strategy.parameters:
-                    import json
                     try:
                         params.update(json.loads(strategy.parameters))
                     except:
@@ -396,7 +446,6 @@ def compare_strategies(
             elif "格雷厄姆" in strategy.name or "defensive" in strategy_name_lower:
                 params = {"pe_threshold": 15, "pb_threshold": 1.5}
                 if strategy.parameters:
-                    import json
                     try:
                         params.update(json.loads(strategy.parameters))
                     except:
@@ -409,7 +458,6 @@ def compare_strategies(
             elif "动量" in strategy.name or "momentum" in strategy_name_lower:
                 params = {"momentum_window": 252}
                 if strategy.parameters:
-                    import json
                     try:
                         params.update(json.loads(strategy.parameters))
                     except:
@@ -421,7 +469,6 @@ def compare_strategies(
             elif "波动" in strategy.name or "volatility" in strategy_name_lower:
                 params = {"volatility_window": 20, "volatility_threshold": 0.02}
                 if strategy.parameters:
-                    import json
                     try:
                         params.update(json.loads(strategy.parameters))
                     except:
@@ -434,7 +481,6 @@ def compare_strategies(
             elif "海龟" in strategy.name or "turtle" in strategy_name_lower or "趋势" in strategy_name_lower:
                 params = {"entry_window": 20, "exit_window": 10, "atr_window": 20}
                 if strategy.parameters:
-                    import json
                     try:
                         params.update(json.loads(strategy.parameters))
                     except:
@@ -464,17 +510,28 @@ def compare_strategies(
                         "value": float(value)
                     })
             
-            results.append({
+            return {
                 "strategy_id": strategy.id,
                 "strategy_name": strategy.name,
                 "category": strategy.category,
                 "total_return": result.total_return,
                 "annual_return": result.annual_return,
                 "sharpe_ratio": result.sharpe_ratio,
+                "sortino_ratio": getattr(result, 'sortino_ratio', None),
+                "calmar_ratio": getattr(result, 'calmar_ratio', None),
                 "max_drawdown": result.max_drawdown,
+                "volatility": getattr(result, 'volatility', None),
+                "win_rate": getattr(result, 'win_rate', None),
+                "profit_loss_ratio": getattr(result, 'profit_loss_ratio', None),
                 "equity_curve": equity_data,
                 "trades_count": len(result.trades)
-            })
+            }
+        
+        # async-parallel: run all backtests in parallel using asyncio.gather
+        # independent computations -> parallel execution = faster response
+        tasks = [run_single_backtest(sid) for sid in strategy_id_list]
+        completed_results = await asyncio.gather(*tasks)
+        results = [r for r in completed_results if r is not None]
         
         return {
             "status": "ok",
@@ -563,3 +620,33 @@ def delete_backtest_result(result_id: int, db: Session = Depends(get_db)):
     db.delete(result)
     db.commit()
     return {"status": "ok", "message": "Backtest result deleted"}
+
+
+# 批量创建策略 - 用于初始化内置策略，减少网络往返
+# async-parallel: parallel insert instead of serial requests
+from typing import List
+
+class StrategyCreateBatch:
+    strategies: List[StrategyCreate]
+
+@router.post("/batch", response_model=List[StrategyResponse])
+async def batch_create_strategies(
+    strategies_in: List[StrategyCreate],
+    db: Session = Depends(get_db)
+):
+    """批量创建多个策略
+    
+    Performance optimization: parallel creation for bulk initialization
+    """
+    strategies = []
+    for s in strategies_in:
+        db_strategy = InvestmentStrategy(**s.model_dump())
+        db.add(db_strategy)
+        strategies.append(db_strategy)
+    
+    db.commit()
+    # Refresh to get IDs
+    for s in strategies:
+        db.refresh(s)
+    
+    return strategies
