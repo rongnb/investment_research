@@ -169,6 +169,33 @@ const COMPARE_COLORS = [
   'rgb(245, 158, 11)',
 ];
 
+// 默认图表选项 - 提取到模块级别，不需要 useMemo（从未改变）
+// 根据 Vercel 最佳实践：don't-memoize-static-objects
+const DEFAULT_CHART_OPTIONS = {
+  responsive: true,
+  maintainAspectRatio: false,
+  plugins: {
+    legend: {
+      display: true,
+      position: 'top' as const
+    }
+  },
+  scales: {
+    y: {
+      beginAtZero: false,
+      title: {
+        display: true,
+        text: '累计净值'
+      }
+    },
+    x: {
+      ticks: {
+        maxTicksLimit: 10
+      }
+    }
+  }
+};
+
 // 纯函数提取到模块级别，不需要 useCallback
 // 根据 Vercel 最佳实践：rerender-simple-expression-in-memo - 不需要 memo 简单纯函数
 const getColorClass = (value: number): string => {
@@ -545,30 +572,7 @@ function App() {
     };
   }, [backtestResult]);
 
-  const chartOptions = useMemo(() => ({
-    responsive: true,
-    maintainAspectRatio: false,
-    plugins: {
-      legend: {
-        display: true,
-        position: 'top' as const
-      }
-    },
-    scales: {
-      y: {
-        beginAtZero: false,
-        title: {
-          display: true,
-          text: '累计净值'
-        }
-      },
-      x: {
-        ticks: {
-          maxTicksLimit: 10
-        }
-      }
-    }
-  }), []);
+  // chartOptions 提取为模块级常量，不需要 useMemo
 
   // 切换策略选择
   const toggleStrategySelection = useCallback((strategyId: number) => {
@@ -828,7 +832,7 @@ function App() {
           backtestResult={backtestResult}
           getColorClass={getColorClass}
           getChartData={getChartData}
-          chartOptions={chartOptions}
+          chartOptions={DEFAULT_CHART_OPTIONS}
           onSymbolChange={setbacktestSymbol}
           onStartDateChange={setbacktestStartDate}
           onEndDateChange={setbacktestEndDate}
@@ -846,7 +850,7 @@ function App() {
           compareLoading={compareLoading}
           compareResult={compareResult}
           getCompareChartData={getCompareChartData}
-          chartOptions={chartOptions}
+          chartOptions={DEFAULT_CHART_OPTIONS}
           getColorClass={getColorClass}
           onSymbolChange={setcompareSymbol}
           onStartDateChange={setcompareStartDate}

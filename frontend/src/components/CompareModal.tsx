@@ -86,14 +86,14 @@ export default function CompareModal({
   };
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center overflow-y-auto">
-      <div className={`p-6 rounded-lg w-full max-w-5xl max-h-[90vh] overflow-y-auto ${darkMode ? 'bg-gray-800' : 'bg-white'}`}>
-        <h3 className={`text-2xl font-bold mb-4 ${darkMode ? 'text-white' : 'text-gray-900'}`}>
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center overflow-y-auto p-2 sm:p-4">
+      <div className={`p-4 sm:p-6 rounded-lg w-full max-w-5xl max-h-[90vh] overflow-y-auto ${darkMode ? 'bg-gray-800' : 'bg-white'}`}>
+        <h3 className={`text-xl sm:text-2xl font-bold mb-3 sm:mb-4 ${darkMode ? 'text-white' : 'text-gray-900'}`}>
           ⚖️ 策略对比
         </h3>
 
-        {/* 输入参数 */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+        {/* 输入参数 - 移动端单列 */}
+        <div className="grid grid-cols-1 gap-3 sm:gap-4 md:grid-cols-3 mb-4 sm:mb-6">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1 dark:text-gray-300">股票代码 *</label>
             <input
@@ -201,10 +201,10 @@ export default function CompareModal({
               </div>
             </div>
 
-            {/* 权益曲线图 */}
+            {/* 权益曲线图 - 移动端更小高度 */}
             {compareResult.results[0] && compareResult.results[0].equity_curve && (
-              <div className="h-80 border rounded p-4 bg-white dark:bg-gray-800">
-                <h4 className="text-lg font-semibold mb-3 text-gray-900 dark:text-white">权益曲线对比</h4>
+              <div className="h-60 sm:h-80 border rounded p-3 sm:p-4 bg-white dark:bg-gray-800">
+                <h4 className="text-base sm:text-lg font-semibold mb-2 sm:mb-3 text-gray-900 dark:text-white">权益曲线对比</h4>
                 <Line data={getCompareChartData()} options={adaptedChartOptions} />
               </div>
             )}
