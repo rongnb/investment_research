@@ -6,6 +6,7 @@ interface PortfolioTabProps {
   selectedPortfolio: Portfolio | null;
   summary: PortfolioSummary | null;
   loading: boolean;
+  darkMode: boolean;
   onSelectPortfolio: (portfolio: Portfolio) => void;
   onCreateClick: () => void;
   onAddHoldingClick: () => void;
@@ -19,6 +20,7 @@ export default function PortfolioTab({
   selectedPortfolio,
   summary,
   loading,
+  darkMode,
   onSelectPortfolio,
   onCreateClick,
   onAddHoldingClick,
@@ -34,15 +36,15 @@ export default function PortfolioTab({
     <>
       <div className="mb-4">
         <button
-          className="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600"
+          className="bg-blue-500 text-white px-3 sm:px-4 py-2 rounded hover:bg-blue-600 text-sm sm:text-base"
           onClick={onCreateClick}
         >
           + 新建投资组合
         </button>
       </div>
 
-      {/* 投资组合列表 */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+      {/* 投资组合列表 - 移动端单列，平板双列，桌面三列 */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 sm:gap-4 mb-6">
         {portfolios.map(p => (
           <div
             key={p.id}
@@ -60,18 +62,18 @@ export default function PortfolioTab({
 
       {/* 投资组合详情 */}
       {selectedPortfolio && summary && (
-        <div className="bg-white rounded-lg border border-gray-200 p-6">
-          <div className="mb-4 flex justify-between items-center">
-            <h2 className="text-2xl font-bold">{selectedPortfolio.name}</h2>
-            <div className="space-x-2">
+        <div className={`rounded-lg border p-4 sm:p-6 ${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'}`}>
+          <div className="mb-4 flex flex-col sm:flex-row sm:justify-between sm:items-center gap-2">
+            <h2 className="text-xl sm:text-2xl font-bold">{selectedPortfolio.name}</h2>
+            <div className="flex gap-2">
               <button
-                className="bg-blue-500 text-white px-3 py-1 rounded hover:bg-blue-600 text-sm"
+                className="bg-blue-500 text-white px-2 sm:px-3 py-1 rounded hover:bg-blue-600 text-sm"
                 onClick={onAddHoldingClick}
               >
                 + 添加持仓
               </button>
               <button
-                className="bg-green-500 text-white px-3 py-1 rounded hover:bg-green-600 text-sm"
+                className="bg-green-500 text-white px-2 sm:px-3 py-1 rounded hover:bg-green-600 text-sm"
                 onClick={() => onUpdatePrices(selectedPortfolio.id)}
               >
                 🔄 更新价格
@@ -79,26 +81,27 @@ export default function PortfolioTab({
             </div>
           </div>
 
-          {/* 汇总信息 */}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-            <div className="bg-gray-50 p-3 rounded">
-              <div className="text-sm text-gray-500">总成本</div>
-              <div className="text-xl font-semibold">¥{summary.total_cost.toFixed(2)}</div>
+          {/* 汇总信息 - 移动端两列，桌面四列 */}
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4 mb-4 sm:mb-6">
+            <div className={`p-3 rounded ${darkMode ? 'bg-gray-700' : 'bg-gray-50'}`}>
+              <div className="text-xs sm:text-sm text-gray-500">总成本</div>
+              <div className="text-lg sm:text-xl font-semibold">¥{summary.total_cost.toFixed(2)}</div>
             </div>
-            <div className="bg-gray-50 p-3 rounded">
-              <div className="text-sm text-gray-500">总市值</div>
-              <div className="text-xl font-semibold">¥{summary.total_market_value.toFixed(2)}</div>
+            <div className={`p-3 rounded ${darkMode ? 'bg-gray-700' : 'bg-gray-50'}`}>
+              <div className="text-xs sm:text-sm text-gray-500">总市值</div>
+              <div className="text-lg sm:text-xl font-semibold">¥{summary.total_market_value.toFixed(2)}</div>
             </div>
-            <div className="bg-gray-50 p-3 rounded">
-              <div className="text-sm text-gray-500">总收益</div>
-              <div className={`text-xl font-semibold ${getColorClass(summary.total_gain_loss)}`}>
+            <div className={`p-3 rounded ${darkMode ? 'bg-gray-700' : 'bg-gray-50'}`}>
+              <div className="text-xs sm:text-sm text-gray-500">总收益</div>
+              <div className={`text-lg sm:text-xl font-semibold ${getColorClass(summary.total_gain_loss)}`}>
                 {summary.total_gain_loss > 0 ? '+' : ''}{summary.total_gain_loss.toFixed(2)}
-                ({summary.total_gain_loss_percent.toFixed(2)}%)
+                <br className="sm:hidden" />
+                <span className="text-xs">({summary.total_gain_loss_percent.toFixed(2)}%)</span>
               </div>
             </div>
-            <div className="bg-gray-50 p-3 rounded">
-              <div className="text-sm text-gray-500">持仓数</div>
-              <div className="text-xl font-semibold">{summary.holding_count}</div>
+            <div className={`p-3 rounded ${darkMode ? 'bg-gray-700' : 'bg-gray-50'}`}>
+              <div className="text-xs sm:text-sm text-gray-500">持仓数</div>
+              <div className="text-lg sm:text-xl font-semibold">{summary.holding_count}</div>
             </div>
           </div>
 

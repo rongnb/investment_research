@@ -145,14 +145,14 @@ export default function BacktestModal({
   };
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center overflow-y-auto">
-      <div className={`p-6 rounded-lg w-full max-w-4xl max-h-[90vh] overflow-y-auto ${darkMode ? 'bg-gray-800' : 'bg-white'}`}>
-        <h3 className={`text-2xl font-bold mb-4 ${darkMode ? 'text-white' : 'text-gray-900'}`}>
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center overflow-y-auto p-2 sm:p-4">
+      <div className={`p-4 sm:p-6 rounded-lg w-full max-w-4xl max-h-[90vh] overflow-y-auto ${darkMode ? 'bg-gray-800' : 'bg-white'}`}>
+        <h3 className={`text-xl sm:text-2xl font-bold mb-3 sm:mb-4 ${darkMode ? 'text-white' : 'text-gray-900'}`}>
           ▶️ 运行回测 · {selectedStrategy.name}
         </h3>
 
-        {/* 输入参数 */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+        {/* 输入参数 - 移动端单列 */}
+        <div className="grid grid-cols-1 gap-3 sm:gap-4 md:grid-cols-3 mb-4 sm:mb-6">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1 dark:text-gray-300">股票代码 *</label>
             <input
@@ -203,81 +203,81 @@ export default function BacktestModal({
         {/* 回测结果 */}
         {backtestResult && (
           <div>
-            {/* 关键指标 */}
-            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 mb-6">
-              <div className="bg-gray-50 dark:bg-gray-700 p-3 rounded">
-                <div className="text-sm text-gray-500 dark:text-gray-400">总收益</div>
-                <div className={`text-xl font-semibold ${getColorClass(backtestResult.total_return)}`}>
+            {/* 关键指标 - 移动端2列，桌面4列 */}
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-2 sm:gap-3 md:gap-4 mb-4 sm:mb-6">
+              <div className={`p-2 sm:p-3 rounded ${darkMode ? 'bg-gray-700' : 'bg-gray-50'}`}>
+                <div className="text-xs sm:text-sm text-gray-500 dark:text-gray-400">总收益</div>
+                <div className={`text-lg sm:text-xl font-semibold ${getColorClass(backtestResult.total_return)}`}>
                   {backtestResult.total_return.toFixed(2)}%
                 </div>
               </div>
-              <div className="bg-gray-50 dark:bg-gray-700 p-3 rounded">
-                <div className="text-sm text-gray-500 dark:text-gray-400">年化收益</div>
-                <div className={`text-xl font-semibold ${getColorClass(backtestResult.annual_return)}`}>
+              <div className={`p-2 sm:p-3 rounded ${darkMode ? 'bg-gray-700' : 'bg-gray-50'}`}>
+                <div className="text-xs sm:text-sm text-gray-500 dark:text-gray-400">年化收益</div>
+                <div className={`text-lg sm:text-xl font-semibold ${getColorClass(backtestResult.annual_return)}`}>
                   {backtestResult.annual_return.toFixed(2)}%
                 </div>
               </div>
-              <div className="bg-gray-50 dark:bg-gray-700 p-3 rounded">
-                <div className="text-sm text-gray-500 dark:text-gray-400">波动率</div>
-                <div className="text-xl font-semibold text-gray-900 dark:text-white">
+              <div className={`p-2 sm:p-3 rounded ${darkMode ? 'bg-gray-700' : 'bg-gray-50'}`}>
+                <div className="text-xs sm:text-sm text-gray-500 dark:text-gray-400">波动率</div>
+                <div className="text-lg sm:text-xl font-semibold text-gray-900 dark:text-white">
                   {backtestResult.volatility?.toFixed(2) ?? '-'}%
                 </div>
               </div>
-              <div className="bg-gray-50 dark:bg-gray-700 p-3 rounded">
-                <div className="text-sm text-gray-500 dark:text-gray-400">最大回撤</div>
-                <div className={`text-xl font-semibold ${getColorClass(-backtestResult.max_drawdown)}`}>
+              <div className={`p-2 sm:p-3 rounded ${darkMode ? 'bg-gray-700' : 'bg-gray-50'}`}>
+                <div className="text-xs sm:text-sm text-gray-500 dark:text-gray-400">最大回撤</div>
+                <div className={`text-lg sm:text-xl font-semibold ${getColorClass(-backtestResult.max_drawdown)}`}>
                   {backtestResult.max_drawdown.toFixed(2)}%
                 </div>
               </div>
-              <div className="bg-gray-50 dark:bg-gray-700 p-3 rounded">
-                <div className="text-sm text-gray-500 dark:text-gray-400">夏普比率</div>
-                <div className="text-xl font-semibold text-gray-900 dark:text-white">
+              <div className={`p-2 sm:p-3 rounded ${darkMode ? 'bg-gray-700' : 'bg-gray-50'}`}>
+                <div className="text-xs sm:text-sm text-gray-500 dark:text-gray-400">夏普比率</div>
+                <div className="text-lg sm:text-xl font-semibold text-gray-900 dark:text-white">
                   {backtestResult.sharpe_ratio.toFixed(2)}
                 </div>
               </div>
-              <div className="bg-gray-50 dark:bg-gray-700 p-3 rounded">
-                <div className="text-sm text-gray-500 dark:text-gray-400">Sortino比率</div>
-                <div className="text-xl font-semibold text-gray-900 dark:text-white">
+              <div className={`p-2 sm:p-3 rounded ${darkMode ? 'bg-gray-700' : 'bg-gray-50'}`}>
+                <div className="text-xs sm:text-sm text-gray-500 dark:text-gray-400">Sortino比率</div>
+                <div className="text-lg sm:text-xl font-semibold text-gray-900 dark:text-white">
                   {backtestResult.sortino_ratio?.toFixed(2) ?? '-'}
                 </div>
               </div>
-              <div className="bg-gray-50 dark:bg-gray-700 p-3 rounded">
-                <div className="text-sm text-gray-500 dark:text-gray-400">Calmar比率</div>
-                <div className="text-xl font-semibold text-gray-900 dark:text-white">
+              <div className={`p-2 sm:p-3 rounded ${darkMode ? 'bg-gray-700' : 'bg-gray-50'}`}>
+                <div className="text-xs sm:text-sm text-gray-500 dark:text-gray-400">Calmar比率</div>
+                <div className="text-lg sm:text-xl font-semibold text-gray-900 dark:text-white">
                   {backtestResult.calmar_ratio?.toFixed(2) ?? '-'}
                 </div>
               </div>
-              <div className="bg-gray-50 dark:bg-gray-700 p-3 rounded">
-                <div className="text-sm text-gray-500 dark:text-gray-400">胜率</div>
-                <div className="text-xl font-semibold text-gray-900 dark:text-white">
+              <div className={`p-2 sm:p-3 rounded ${darkMode ? 'bg-gray-700' : 'bg-gray-50'}`}>
+                <div className="text-xs sm:text-sm text-gray-500 dark:text-gray-400">胜率</div>
+                <div className="text-lg sm:text-xl font-semibold text-gray-900 dark:text-white">
                   {backtestResult.win_rate?.toFixed(1) ?? '-'}%
                 </div>
               </div>
             </div>
 
-            {/* 第二行指标 */}
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-              <div className="bg-gray-50 dark:bg-gray-700 p-3 rounded">
-                <div className="text-sm text-gray-500 dark:text-gray-400">盈亏比</div>
-                <div className="text-xl font-semibold text-gray-900 dark:text-white">
+            {/* 第二行指标 - 移动端2列 */}
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-2 sm:gap-3 md:gap-4 mb-4 sm:mb-6">
+              <div className={`p-2 sm:p-3 rounded ${darkMode ? 'bg-gray-700' : 'bg-gray-50'}`}>
+                <div className="text-xs sm:text-sm text-gray-500 dark:text-gray-400">盈亏比</div>
+                <div className="text-lg sm:text-xl font-semibold text-gray-900 dark:text-white">
                   {backtestResult.profit_loss_ratio?.toFixed(2) ?? '-'}
                 </div>
               </div>
-              <div className="bg-gray-50 dark:bg-gray-700 p-3 rounded">
-                <div className="text-sm text-gray-500 dark:text-gray-400">交易次数</div>
-                <div className="text-xl font-semibold text-gray-900 dark:text-white">
+              <div className={`p-2 sm:p-3 rounded ${darkMode ? 'bg-gray-700' : 'bg-gray-50'}`}>
+                <div className="text-xs sm:text-sm text-gray-500 dark:text-gray-400">交易次数</div>
+                <div className="text-lg sm:text-xl font-semibold text-gray-900 dark:text-white">
                   {backtestResult.total_trades ?? '-'}
                 </div>
               </div>
-              <div className="bg-gray-50 dark:bg-gray-700 p-3 rounded">
-                <div className="text-sm text-gray-500 dark:text-gray-400">最大回撤持续天数</div>
-                <div className="text-xl font-semibold text-gray-900 dark:text-white">
+              <div className={`p-2 sm:p-3 rounded ${darkMode ? 'bg-gray-700' : 'bg-gray-50'}`}>
+                <div className="text-xs sm:text-sm text-gray-500 dark:text-gray-400">最大回撤持续天数</div>
+                <div className="text-lg sm:text-xl font-semibold text-gray-900 dark:text-white">
                   {backtestResult.drawdown_duration ?? '-'}
                 </div>
               </div>
-              <div className="bg-gray-50 dark:bg-gray-700 p-3 rounded">
-                <div className="text-sm text-gray-500 dark:text-gray-400">交易成本</div>
-                <div className="text-xl font-semibold text-gray-900 dark:text-white">
+              <div className={`p-2 sm:p-3 rounded ${darkMode ? 'bg-gray-700' : 'bg-gray-50'}`}>
+                <div className="text-xs sm:text-sm text-gray-500 dark:text-gray-400">交易成本</div>
+                <div className="text-lg sm:text-xl font-semibold text-gray-900 dark:text-white">
                   {backtestResult.transaction_costs?.toFixed(2) ?? '-'}%
                 </div>
               </div>
@@ -288,18 +288,18 @@ export default function BacktestModal({
               · 交易日: {backtestResult.trading_days} 天
             </div>
 
-            {/* 权益曲线图 */}
+            {/* 权益曲线图 - 移动端更小高度 */}
             {backtestResult.equity_curve && backtestResult.equity_curve.length > 0 && getChartData && (
-              <div className="h-80 border rounded p-4 bg-white dark:bg-gray-800 mb-4">
-                <h4 className="text-lg font-semibold mb-3 text-gray-900 dark:text-white">权益曲线 (初始值=1)</h4>
+              <div className="h-60 sm:h-80 border rounded p-3 sm:p-4 bg-white dark:bg-gray-800 mb-3 sm:mb-4">
+                <h4 className="text-base sm:text-lg font-semibold mb-2 sm:mb-3 text-gray-900 dark:text-white">权益曲线 (初始值=1)</h4>
                 <Line data={getChartData} options={adaptedChartOptions} />
               </div>
             )}
 
-            {/* 回撤曲线图 */}
+            {/* 回撤曲线图 - 移动端更小高度 */}
             {backtestResult.equity_curve && backtestResult.equity_curve.length > 0 && (
-              <div className="h-64 border rounded p-4 bg-white dark:bg-gray-800">
-                <h4 className="text-lg font-semibold mb-3 text-gray-900 dark:text-white">回撤曲线 (百分比)</h4>
+              <div className="h-48 sm:h-64 border rounded p-3 sm:p-4 bg-white dark:bg-gray-800">
+                <h4 className="text-base sm:text-lg font-semibold mb-2 sm:mb-3 text-gray-900 dark:text-white">回撤曲线 (百分比)</h4>
                 <Line data={getDrawdownChartData()!} options={getDrawdownChartOptions()} />
               </div>
             )}

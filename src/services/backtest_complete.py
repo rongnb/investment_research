@@ -428,4 +428,23 @@ class MovingAverageCrossoverStrategy(BaseStrategy):
                     shares = 0
                     position = 0
                     trades.append({
-                        "date": str(close.index
+                        "date": str(close.index[date_idx]),
+                        "type": "sell",
+                        "price": float(price),
+                        "cost": cost
+                    })
+                prev_signal = sig
+            
+            equity.append((close.index[date_idx], cash + shares * price))
+        
+        # 转换为序列
+        df_equity = pd.DataFrame(equity, columns=['date', 'value']).set_index('date')
+        equity_series = df_equity['value']
+        
+        # 计算指标
+        returns = equity_series.pct_change().dropna()
+        result = calculate_metrics(returns, trades)
+        result.transaction_costs = total_costs * 100
+        
+        return result
+

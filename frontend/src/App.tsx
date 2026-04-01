@@ -717,32 +717,32 @@ function App() {
 
   return (
     <div className={`container mx-auto p-4 min-h-screen ${bgContainer}`}>
-      <header className="mb-6">
-        <div className="flex justify-between items-center">
+      <header className="mb-4 sm:mb-6">
+        <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3">
           <div>
-            <h1 className={`text-3xl font-bold ${darkMode ? 'text-white' : 'text-gray-800'}`}>
+            <h1 className={`text-2xl sm:text-3xl font-bold ${darkMode ? 'text-white' : 'text-gray-800'}`}>
               📊 Invest Management
             </h1>
-            <p className={`mt-1 ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>投资策略研究与组合管理</p>
+            <p className={`mt-1 text-sm sm:text-base ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>投资策略研究与组合管理</p>
           </div>
           <button
-            className={`px-3 py-2 rounded border ${darkMode ? 'border-gray-600 hover:bg-gray-800 text-white' : 'border-gray-200 hover:bg-gray-100 text-gray-900'}`}
+            className={`self-start sm:self-auto px-3 py-2 rounded border ${darkMode ? 'border-gray-600 hover:bg-gray-800 text-white' : 'border-gray-200 hover:bg-gray-100 text-gray-900'}`}
             onClick={() => setDarkMode(!darkMode)}
           >
             {darkMode ? '☀️ 浅色' : '🌙 深色'}
           </button>
         </div>
 
-        {/* 标签页导航 */}
-        <div className={`flex space-x-1 mt-4 border-b ${darkMode ? 'border-gray-700' : 'border-gray-200'}`}>
+        {/* 标签页导航 - 移动端小字号 */}
+        <div className={`flex space-x-0.5 sm:space-x-1 mt-3 sm:mt-4 border-b ${darkMode ? 'border-gray-700' : 'border-gray-200'}`}>
           <button
-            className={`px-4 py-2 font-medium rounded-t-lg ${activeTab === 'portfolio' ? `border-b-2 border-blue-500 ${darkMode ? 'text-blue-400' : 'text-blue-600'}` : `${darkMode ? 'text-gray-400 hover:text-gray-300' : 'text-gray-500 hover:text-gray-700'}`}`}
+            className={`flex-1 sm:flex-none text-sm sm:text-base px-2 sm:px-4 py-2 font-medium rounded-t-lg ${activeTab === 'portfolio' ? `border-b-2 border-blue-500 ${darkMode ? 'text-blue-400' : 'text-blue-600'}` : `${darkMode ? 'text-gray-400 hover:text-gray-300' : 'text-gray-500 hover:text-gray-700'}`}`}
             onClick={() => setActiveTab('portfolio')}
           >
             📂 投资组合
           </button>
           <button
-            className={`px-4 py-2 font-medium rounded-t-lg ${activeTab === 'strategies' ? `border-b-2 border-blue-500 ${darkMode ? 'text-blue-400' : 'text-blue-600'}` : `${darkMode ? 'text-gray-400 hover:text-gray-300' : 'text-gray-500 hover:text-gray-700'}`}`}
+            className={`flex-1 sm:flex-none text-sm sm:text-base px-2 sm:px-4 py-2 font-medium rounded-t-lg ${activeTab === 'strategies' ? `border-b-2 border-blue-500 ${darkMode ? 'text-blue-400' : 'text-blue-600'}` : `${darkMode ? 'text-gray-400 hover:text-gray-300' : 'text-gray-500 hover:text-gray-700'}`}`}
             onClick={() => setActiveTab('strategies')}
           >
             📚 投资策略
@@ -757,6 +757,7 @@ function App() {
           selectedPortfolio={selectedPortfolio}
           summary={summary}
           loading={loading}
+          darkMode={darkMode}
           onSelectPortfolio={loadPortfolioDetail}
           onCreateClick={() => setShowAddModal(true)}
           onAddHoldingClick={() => setShowAddHoldingModal(true)}

@@ -36,31 +36,32 @@ export default function StrategiesTab({
 
   return (
     <>
-      <div className="mb-4 flex flex-wrap gap-2 justify-between items-center">
-        <p className={darkMode ? 'text-gray-300' : 'text-gray-600'}>
+      {/* 移动端响应式按钮组 - 两行布局 */}
+      <div className="mb-4">
+        <p className={`mb-3 ${darkMode ? 'text-gray-300' : 'text-gray-600'} text-sm sm:text-base`}>
           系统内置经典投资策略，可用于学习研究和回测
         </p>
-        <div className="space-x-2">
+        <div className="grid grid-cols-2 gap-2">
           <button
-            className="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600"
+            className="bg-blue-500 text-white px-2 sm:px-4 py-2 rounded hover:bg-blue-600 text-sm sm:text-base"
             onClick={onHistoryClick}
           >
             📜 历史回测
           </button>
           <button
-            className="bg-green-500 text-white px-4 py-2 rounded hover:bg-green-600"
+            className="bg-green-500 text-white px-2 sm:px-4 py-2 rounded hover:bg-green-600 text-sm sm:text-base"
             onClick={onCreateClick}
           >
             + 创建策略
           </button>
           <button
-            className="bg-purple-500 text-white px-4 py-2 rounded hover:bg-purple-600"
+            className="bg-purple-500 text-white px-2 sm:px-4 py-2 rounded hover:bg-purple-600 text-sm sm:text-base"
             onClick={onCompareClick}
           >
             ⚖️ 策略对比
           </button>
           <button
-            className="bg-green-500 text-white px-4 py-2 rounded hover:bg-green-600"
+            className="bg-green-500 text-white px-2 sm:px-4 py-2 rounded hover:bg-green-600 text-sm sm:text-base"
             onClick={onInitBuiltin}
           >
             📥 初始化内置策略
@@ -68,12 +69,12 @@ export default function StrategiesTab({
         </div>
       </div>
 
-      {/* 策略列表 */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      {/* 策略列表 - 移动端单列，中等屏幕单列，大屏幕双列 */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 sm:gap-4">
         {strategies.map(s => (
           <div
             key={s.id}
-            className={`border rounded-lg p-5 bg-white hover:shadow-md transition ${selectedStrategyIds.includes(s.id) ? 'border-purple-500 bg-purple-50' : 'border-gray-200'}`}
+            className={`border rounded-lg p-3 sm:p-5 ${darkMode ? 'bg-gray-800' : 'bg-white'} hover:shadow-md transition ${selectedStrategyIds.includes(s.id) ? 'border-purple-500 bg-purple-50' : 'border-gray-200'}`}
           >
             <div className="flex justify-between items-start mb-2">
               <div className="flex items-center">
@@ -96,9 +97,9 @@ export default function StrategiesTab({
                 {s.description}
               </div>
             )}
-            {/* 回测结果 */}
+            {/* 回测结果 - 移动端2列，桌面4列 */}
             {(s.total_return != null || s.sharpe_ratio != null || s.max_drawdown != null) && (
-              <div className="grid grid-cols-4 gap-2 mt-4 pt-3 border-t">
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mt-4 pt-3 border-t">
                 {s.total_return != null && (
                   <div>
                     <div className="text-xs text-gray-500">总收益</div>
